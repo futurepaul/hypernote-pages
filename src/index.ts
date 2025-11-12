@@ -3,6 +3,7 @@ import index from "./index.html";
 
 const server = serve({
   routes: {
+    "/mdx.wasm": Bun.file("./public/mdx.wasm"),
     // Serve index.html for all unmatched routes.
     "/*": index,
 
