@@ -4,12 +4,10 @@ import { Preview } from "./Preview";
 import { parseMdx } from "@/lib/wasm";
 import type { AST } from "zig-mdx";
 import { useNostr } from "./NostrContext";
-import { useObservableMemo } from "@/hooks/use-observable-memo";
 import { UserProfile } from "./UserProfile";
-import { nip19, UnsignedEvent, type EventTemplate } from "nostr-tools";
+import { nip19, type EventTemplate } from "nostr-tools";
 import { slugify } from "@/lib/utils";
 import yaml from "yaml";
-// import { useNostr } from "./NostrContext";
 
 export function Editor() {
   const nostr = useNostr();
