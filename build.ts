@@ -126,7 +126,7 @@ console.log(`📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? 
 const copyPlugin = Copy({
   // Array of asset objects to copy.
   assets: [
-      { from: path.resolve(import.meta.dir, "node_modules/zig-mdx/dist/mdx.wasm"), to: 'dist/public/mdx.wasm' },
+      { from: path.resolve(import.meta.dir, "node_modules/zig-mdx/dist/mdx.wasm"), to: 'dist/mdx.wasm' },
       { from: path.resolve(import.meta.dir, "node_modules/zig-mdx/dist/mdx.wasm"), to: 'public/mdx.wasm' },
   ],
   // Whether to verify the existence of 'from' before copying. If set to true, the plugin will exit if the source file or directory doesn't exist.
