@@ -27,19 +27,11 @@ export function Editor() {
   const [userPubkey, setUserPubkey] = useState<string | null>(null);
   const [hasExtension, setHasExtension] = useState(false);
 
-  const lastParsedTimestamp = useRef<number>(0);
-
+  // TODO: debounce this
   useEffect(() => {
     async function parse() {
-      if (Date.now() - lastParsedTimestamp.current > 100) {
-        try {
-          const ast = await parseMdx(value);
-          setParsedAst(ast);
-          lastParsedTimestamp.current = Date.now();
-        } catch (error) {
-          console.error("Failed to parse MDX:", error);
-        }
-      }
+      const ast = await parseMdx(value);
+      setParsedAst(ast);
     }
     parse();
   }, [value]);
