@@ -29,6 +29,7 @@
         "zig-mdx": "^0.1.3",
       },
       "devDependencies": {
+        "@alik6/bun-copy-plugin": "^0.0.10",
         "@types/bun": "latest",
         "@types/react": "^19",
         "@types/react-dom": "^19",
@@ -36,6 +37,8 @@
     },
   },
   "packages": {
+    "@alik6/bun-copy-plugin": ["@alik6/bun-copy-plugin@0.0.10", "", { "peerDependencies": { "typescript": "^5.0.0" } }, "sha512-CQ5cltfQL6i02FCGawD/P79Y2Pm6mSHw/iC7uSWiA8BvtFMzn9aW4qFBKjKoh5NhwW2xXWBWsQGbCrSr7QLOAg=="],
+
     "@emnapi/runtime": ["@emnapi/runtime@1.7.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-oAYoQnCYaQZKVS53Fq23ceWMRxq5EhQsE0x0RdQ55jT7wagMu5k+fS39v1fiSLrtrLQlXwVINenqhLMtTrV/1Q=="],
 
     "@img/colour": ["@img/colour@1.0.0", "", {}, "sha512-A5P/LfWGFSl6nsckYtjw9da+19jB8hkJ6ACTGcDfEJ0aE+l2n2El7dsVM7UVHZQ9s2lmYMWlrS21YLy2IR1LUw=="],

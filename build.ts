@@ -3,6 +3,7 @@ import plugin from "bun-plugin-tailwind";
 import { existsSync } from "fs";
 import { rm } from "fs/promises";
 import path from "path";
+import { Copy } from "@alik6/bun-copy-plugin";
 
 if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`
@@ -122,10 +123,22 @@ const entrypoints = [...new Bun.Glob("**.html").scanSync("src")]
   .filter(dir => !dir.includes("node_modules"));
 console.log(`📄 Found ${entrypoints.length} HTML ${entrypoints.length === 1 ? "file" : "files"} to process\n`);
 
+const copyPlugin = Copy({
+  // Array of asset objects to copy.
+  assets: [
+      { from: path.resolve(import.meta.dir, "node_modules/zig-mdx/dist/mdx.wasm"), to: 'dist/public/mdx.wasm' },
+      { from: path.resolve(import.meta.dir, "node_modules/zig-mdx/dist/mdx.wasm"), to: 'public/mdx.wasm' },
+  ],
+  // Whether to verify the existence of 'from' before copying. If set to true, the plugin will exit if the source file or directory doesn't exist.
+  verify: true,
+  // if to show  plugin's logs or not
+  verbose: true,
+})
+
 const result = await Bun.build({
   entrypoints,
   outdir,
-  plugins: [plugin],
+  plugins: [plugin, copyPlugin],
   minify: true,
   target: "browser",
   sourcemap: "linked",
