@@ -80,7 +80,7 @@ function NodeRenderer({ node, keyName }: { node: MDXNode; keyName: string }) {
   }
 }
 
-export function Preview({ ast }: { ast: AST }) {
+export function Preview({ ast, naddr }: { ast: AST, naddr?: string}) {
   const [frontmatter, setFrontmatter] = useState<Record<string, any> | null>(
     null
   );
@@ -103,6 +103,11 @@ export function Preview({ ast }: { ast: AST }) {
         <h2 className="font-bold text-center">
           {frontmatter?.title || "Untitled"}
         </h2>
+        {naddr && (
+          <div className="text-sm text-neutral-500">
+            <button onClick={() => navigator.clipboard.writeText(naddr)}>Copy naddr</button>
+          </div>
+        )}
       </div>
 
       <div className="w-full max-h-full text-neutral-800 overflow-x-hidden overflow-y-auto">
@@ -113,9 +118,9 @@ export function Preview({ ast }: { ast: AST }) {
             keyName="root"
           />
 
-          <pre className="bg-neutral-900 text-neutral-200 p-4 rounded-sm whitespace-pre-wrap break-all">
+          {/* <pre className="bg-neutral-900 text-neutral-200 p-4 rounded-sm whitespace-pre-wrap break-all">
             {JSON.stringify(ast, null, 2)}
-          </pre>
+          </pre> */}
         </div>
       </div>
     </div>

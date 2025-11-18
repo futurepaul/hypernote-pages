@@ -5,19 +5,25 @@ import { parseMdx } from "@/lib/wasm";
 import type { AST } from "zig-mdx";
 import { useNostr } from "./NostrContext";
 import { UserProfile } from "./UserProfile";
-import { nip19, type EventTemplate } from "nostr-tools";
+import { nip19, validateEvent, type EventTemplate } from "nostr-tools";
 import { slugify } from "@/lib/utils";
 import yaml from "yaml";
 
+const defaultValue = `---
+title: My First Page
+---
+
+# My First Page
+
+This is my first page.
+`;
+
+const defaultAst: AST = await parseMdx(defaultValue);
+
 export function Editor() {
   const nostr = useNostr();
-  const [value, setValue] = useState("");
-  const [parsedAst, setParsedAst] = useState<AST>({
-    type: "root",
-    children: [],
-    source: "",
-    errors: [],
-  });
+  const [value, setValue] = useState(defaultValue);
+  const [parsedAst, setParsedAst] = useState<AST>(defaultAst);
   const [userPubkey, setUserPubkey] = useState<string | null>(null);
   const [hasExtension, setHasExtension] = useState(false);
 
@@ -110,18 +116,27 @@ export function Editor() {
       kind: 32616,
       content,
       tags,
-      created_at: Date.now(),
+      created_at: Math.floor(Date.now() / 1000),
     }
     const res = await nostr.signer.signEvent(eventTemplate)
-    // const relays = Array.from(nostr.pool.relays.keys())
+
+    const verified = validateEvent(res);
+    if (!verified) {
+      throw new Error("Failed to verify event");
+    } else {
+      console.log("Event verified");
+    }
+
     const relays = ["wss://nos.lol"]
 
     const published = await nostr.pool.publish(relays, res);
+    console.log(published);
     if (published.length === 0) {
       throw new Error("Failed to publish event");
     }
 
-    const naddr = nip19.naddrEncode({ pubkey: userPubkey, kind: 32616, identifier: res.id })
+    const naddr = nip19.naddrEncode({ pubkey: userPubkey, kind: 32616, identifier: res.id, relays: ["wss://nos.lol"] })
+    console.log(naddr);
 
     alert(`Published to ${naddr}`);
     setIsPublishing(false);

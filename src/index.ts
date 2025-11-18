@@ -1,9 +1,10 @@
 import { serve } from "bun";
 import index from "./index.html";
+import { resolve } from "path";
 
 const server = serve({
   routes: {
-    "/mdx.wasm": Bun.file("./public/mdx.wasm"),
+    "/mdx.wasm": Bun.file(resolve(import.meta.dir, "../public/mdx.wasm")),
     // Serve index.html for all unmatched routes.
     "/*": index,
 
