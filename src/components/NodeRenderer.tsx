@@ -133,19 +133,14 @@ export function NodeRenderer({
     // MDX STUFF!!!
     case "mdx_text_expression": {
       // Inline expression like {value}
-      // const result = evaluate(node.value, scope);
-      // console.log("💬 mdx_text_expression - expression:", node.value, "result:", result, "scope.queries:", scope.queries);
-      // return <>{String(result ?? "")}</>;
-      return (
-        <>
-          Frontmatter: {JSON.stringify(scope?.state)} Expression:{" "}
-          {evaluate(node.value, scope ?? {})}
-        </>
-      );
+      const result = evaluate(node.value, scope);
+      return <>{String(result ?? "")}</>;
     }
 
     case "mdx_flow_expression": {
-      return <>{evaluate(node.value, scope ?? {})}</>;
+      // Block-level expression
+      const result = evaluate(node.value, scope);
+      return <>{String(result ?? "")}</>;
     }
 
     case "mdx_jsx_element":

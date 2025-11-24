@@ -1,7 +1,8 @@
 import type { AST } from "zig-mdx";
 import yaml from "yaml";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { NodeRenderer } from "@/components/NodeRenderer";
+import { useNostrQuery, type NostrQuery } from "@/hooks/useNostrQuery";
 
 export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; parseError?: string | null }) {
   const [frontmatter, setFrontmatter] = useState<Record<string, any> | null>(
@@ -19,6 +20,35 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
       }
     }
   }, [ast]);
+
+  // Parse query from frontmatter
+  const query = useMemo<NostrQuery | undefined>(() => {
+    if (!frontmatter) return undefined;
+
+    // Handle different query types based on frontmatter
+    if (frontmatter.profile) {
+      return { type: "profile", pubkey: frontmatter.profile };
+    }
+    if (frontmatter.event) {
+      return { type: "event", id: frontmatter.event };
+    }
+    if (frontmatter.address) {
+      return {
+        type: "address",
+        kind: frontmatter.address.kind,
+        pubkey: frontmatter.address.pubkey,
+        identifier: frontmatter.address.identifier,
+      };
+    }
+    if (frontmatter.filter) {
+      return { type: "timeline", filter: frontmatter.filter };
+    }
+
+    return undefined;
+  }, [frontmatter]);
+
+  // ONE HOOK - get the data
+  const queryResult = useNostrQuery(query);
 
   return (
     <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden">
@@ -44,7 +74,14 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
             keyName="root"
             scope={{
               props: {},
-              queries: {},
+              queries: {
+                // Put query result in scope based on query type
+                profile: query?.type === "profile" ? queryResult : undefined,
+                event: query?.type === "event" ? (Array.isArray(queryResult) ? queryResult[0] : queryResult) : undefined,
+                events: query?.type === "timeline" ? queryResult : undefined,
+                // Also support accessing by the address type
+                address: query?.type === "address" ? queryResult : undefined,
+              },
               state: frontmatter ?? {},
               form: {},
               user: undefined,
