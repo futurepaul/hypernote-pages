@@ -26,12 +26,19 @@ export function Editor() {
   const [parsedAst, setParsedAst] = useState<AST>(defaultAst);
   const [userPubkey, setUserPubkey] = useState<string | null>(null);
   const [hasExtension, setHasExtension] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
 
   // TODO: debounce this
   useEffect(() => {
     async function parse() {
-      const ast = await parseMdx(value);
-      setParsedAst(ast);
+      try {
+        setParseError(null);
+        const ast = await parseMdx(value);
+        setParsedAst(ast);
+      } catch (error) {
+        console.error(error);
+        setParseError(error instanceof Error ? error.message : 'Unknown error');
+      }
     }
     parse();
   }, [value]);
@@ -153,7 +160,7 @@ export function Editor() {
         <div className="flex-1 p-4 flex flex-col items-center gap-4">
           {/* <Button onClick={() => {}}>Publish</Button> */}
           {/* a phone-like preview with a fixed aspect ratio of 9:16 */}
-          <Preview ast={parsedAst} />
+          <Preview ast={parsedAst} parseError={parseError} />
         </div>
       </div>
     </div>
