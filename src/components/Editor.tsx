@@ -8,6 +8,8 @@ import { UserProfile } from "./UserProfile";
 import { nip19, validateEvent, type EventTemplate } from "nostr-tools";
 import { slugify } from "@/lib/utils";
 import yaml from "yaml";
+import { usePages } from "@/hooks/nostr";
+import type { Event as NostrEvent } from "nostr-tools";
 
 const defaultValue = `---
 title: My First Page
@@ -27,6 +29,10 @@ export function Editor() {
   const [userPubkey, setUserPubkey] = useState<string | null>(null);
   const [hasExtension, setHasExtension] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+
+  const [showFileBrowser, setShowFileBrowser] = useState(true);
+  const [showProperties, setShowProperties] = useState(false);
+  const pages = usePages();
 
   // TODO: debounce this
   useEffect(() => {
@@ -141,6 +147,59 @@ export function Editor() {
     setIsPublishing(false);
   };
 
+  function FileBrowser({ pages }: { pages: NostrEvent[] }) {
+    // TODO: move the title to a tag so we don't need to parse to get it
+    // TODO: add a "status" tag
+    const parsed = pages.map((page) => {
+      const ast = JSON.parse(page.content);
+      try {
+        const title = ast.children.find((child: any) => child.type === "frontmatter")?.value;
+        return {
+          id: page.id,
+          title: yaml.parse(title).title,
+          source: ast.source,
+          status: "published"
+        }
+      } catch (error) {
+        console.error(error);
+        return {
+          id: page.id,
+          title: "Untitled",
+          source: ast.source,
+          status: "draft"
+        }
+      }
+    })
+    console.log(parsed);
+
+    const [selectedPage, setSelectedPage] = useState<string | null>(null);
+
+    const handleSelectPage = (id: string) => {
+      setSelectedPage(id);
+      setValue(parsed.find((page) => page.id === id)?.source ?? "");
+    }
+
+
+    return (
+      <div className="flex flex-col">
+        {parsed.map((page) => (
+          <div className={`hover:bg-neutral-600 p-2 rounded-md cursor-pointer ${selectedPage === page.id ? "bg-neutral-600" : ""}`} onClick={() => handleSelectPage(page.id)}>
+            <div>
+
+
+          <div className="text-sm " key={page.id}>{page.title}</div>
+          <div className="text-xs text-neutral-500 truncate max-w-[128px]">{page.id}</div>
+          </div>
+          {/* Status tag */}
+          <div>
+            <span className={`text-xs px-2 py-1 rounded-md ${page.status === "published" ? "bg-green-500" : "bg-red-500"}`}>{page.status}</span>
+          </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="bg-neutral-900 text-neutral-200 p-4 flex justify-between items-center">
@@ -154,6 +213,16 @@ export function Editor() {
       </div>
 
       <div className={"flex-1 flex overflow-hidden"}>
+        {showFileBrowser && (
+          <div className="w-[256px] p-2">
+            <div className="bg-neutral-700 p-2 rounded-md border border-neutral-600">
+             <FileBrowser pages={pages ?? []} />
+              </div>
+
+          </div>
+        )
+        
+        }
         <div className="flex-1">
           <MarkdownEditor value={value} onChange={(value) => setValue(value)} />
         </div>
@@ -162,6 +231,9 @@ export function Editor() {
           {/* a phone-like preview with a fixed aspect ratio of 9:16 */}
           <Preview ast={parsedAst} parseError={parseError} />
         </div>
+        {showProperties && (
+          <div className="w-[256px] bg-blue-500">Properties Go Here</div>
+        )}
       </div>
     </div>
   );
