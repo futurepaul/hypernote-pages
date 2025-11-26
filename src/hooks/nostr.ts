@@ -6,6 +6,7 @@ import { onlyEvents } from "applesauce-relay";
 import { mapEventsToStore, mapEventsToTimeline } from "applesauce-core/observable";
 import { first, map, startWith, tap } from "rxjs";
 import { nip19 } from "nostr-tools";
+import { DEFAULT_RELAYS } from "@/lib/relays";
 
 export function useNostr() {
     return useContext(NostrContext);
@@ -26,11 +27,15 @@ export function useProfile(
     );
   }
 
-export function usePages() {
+export function usePages(authorPubkey?: string) {
   const nostr = useNostr();
   return useObservableMemo(
     () => {
-      return nostr?.pool.relay("wss://nos.lol").subscription([{ kinds: [32616], "#t": ["hypernote-v1.3.0"], limit: 10 }])
+      const filter: any = { kinds: [32616], "#t": ["hypernote-v1.3.0"], limit: 20 };
+      if (authorPubkey) {
+        filter.authors = [authorPubkey];
+      }
+      return nostr?.pool.relay(DEFAULT_RELAYS[0]!).subscription([filter])
       .pipe(
         onlyEvents(),
         mapEventsToStore(nostr?.eventStore),
@@ -39,7 +44,7 @@ export function usePages() {
         startWith([]),
       );
     },
-    [nostr?.eventStore]
+    [nostr?.eventStore, authorPubkey]
   );
 }
 
@@ -47,22 +52,17 @@ export function usePage(naddr: string) {
   const nostr = useNostr();
 
   const decoded = nip19.decode(naddr);
-  console.log(decoded);
   if (decoded.type !== "naddr") {
     throw new Error("Invalid naddr");
   }
-  const pubkey = decoded.data.pubkey;
-  const identifier = decoded.data.identifier;
-  const relays = decoded.data.relays; 
-  if (!relays || relays.length === 0) {
-    throw new Error("Relays not found");
-  }
+  const { pubkey, identifier, relays } = decoded.data;
+  const queryRelays = relays?.length ? relays : DEFAULT_RELAYS;
+
   return useObservableMemo(
-    () => nostr?.pool.relay(relays[0]!).subscription([{ kinds: [32616], limit: 1, "#d": [identifier] }])
+    () => nostr?.pool.relay(queryRelays[0]!).subscription([{ kinds: [32616], limit: 1, "#d": [identifier], authors: [pubkey] }])
     .pipe(
       onlyEvents(),
       mapEventsToStore(nostr?.eventStore),
-      tap((e) => console.log(e)),
       first(),
     ),
     [naddr]

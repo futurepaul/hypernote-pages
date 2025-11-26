@@ -5,36 +5,113 @@ import {
   createAddressLoader,
   type AddressPointerLoader,
 } from "applesauce-loaders/loaders";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import { nip19 } from "nostr-tools";
+import { LOOKUP_RELAYS } from "@/lib/relays";
 
-export const NostrContext = createContext<{ eventStore: EventStore, pool: RelayPool, signer: ExtensionSigner, addressLoader: AddressPointerLoader } | null>(null);
+interface NostrContextValue {
+  eventStore: EventStore;
+  pool: RelayPool;
+  signer: ExtensionSigner;
+  addressLoader: AddressPointerLoader;
+  pubkey: string | null;
+  isReadonly: boolean;
+  hasExtension: boolean;
+  login: (method: 'extension' | 'npub', npubOrHex?: string) => Promise<void>;
+  logout: () => void;
+}
+
+export const NostrContext = createContext<NostrContextValue | null>(null);
+
+const eventStore = new EventStore();
+const pool = new RelayPool();
+const signer = new ExtensionSigner();
+const addressLoader = createAddressLoader(pool, {
+  eventStore,
+  lookupRelays: LOOKUP_RELAYS,
+});
+eventStore.addressableLoader = addressLoader;
+eventStore.replaceableLoader = addressLoader;
 
 export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
-    // Create an event store for all events
-    const eventStore = new EventStore();
+  const [pubkey, setPubkey] = useState<string | null>(null);
+  const [isReadonly, setIsReadonly] = useState(false);
+  const [hasExtension, setHasExtension] = useState(false);
 
-    // Create a relay pool to make relay connections
-    const pool = new RelayPool();
-  
-    // Create a signer
-    const signer = new ExtensionSigner();
-  
-    // Create an address loader to load user profiles
-    const addressLoader = createAddressLoader(pool, {
-      eventStore,
-      lookupRelays: ["wss://purplepag.es", "wss://index.hzrd149.com"],
-    });
-  
-    // Add loaders to event store
-    // These will be called if the event store doesn't have the requested event
-    eventStore.addressableLoader = addressLoader;
-    eventStore.replaceableLoader = addressLoader;
-
-    if (!eventStore || !pool || !signer || !addressLoader) {
-      return <>Loading...</>
+  // Check for extension on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && "nostr" in window) {
+      setHasExtension(true);
+      return;
     }
+    const intervals = [100, 200, 400, 800, 1600];
+    let timeoutIds: ReturnType<typeof setTimeout>[] = [];
+    let totalDelay = 0;
+    for (const interval of intervals) {
+      totalDelay += interval;
+      const timeoutId = setTimeout(() => {
+        if (typeof window !== "undefined" && "nostr" in window) {
+          setHasExtension(true);
+          timeoutIds.forEach((id) => clearTimeout(id));
+          timeoutIds = [];
+        }
+      }, totalDelay);
+      timeoutIds.push(timeoutId);
+    }
+    return () => timeoutIds.forEach((id) => clearTimeout(id));
+  }, []);
 
-  return <NostrContext value={{ eventStore, pool, signer, addressLoader }}>{children}</NostrContext>;
+  // Restore session from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("hn-auth");
+    if (stored) {
+      try {
+        const { pubkey, isReadonly } = JSON.parse(stored);
+        setPubkey(pubkey);
+        setIsReadonly(isReadonly);
+      } catch {}
+    }
+  }, []);
+
+  const login = useCallback(async (method: 'extension' | 'npub', npubOrHex?: string) => {
+    if (method === 'extension') {
+      const pk = await signer.getPublicKey();
+      setPubkey(pk);
+      setIsReadonly(false);
+      localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: false }));
+    } else if (method === 'npub' && npubOrHex) {
+      let pk = npubOrHex;
+      if (npubOrHex.startsWith("npub")) {
+        const decoded = nip19.decode(npubOrHex);
+        if (decoded.type === "npub") {
+          pk = decoded.data;
+        }
+      }
+      setPubkey(pk);
+      setIsReadonly(true);
+      localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: true }));
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    setPubkey(null);
+    setIsReadonly(false);
+    localStorage.removeItem("hn-auth");
+  }, []);
+
+  const value = useMemo(() => ({
+    eventStore,
+    pool,
+    signer,
+    addressLoader,
+    pubkey,
+    isReadonly,
+    hasExtension,
+    login,
+    logout,
+  }), [pubkey, isReadonly, hasExtension, login, logout]);
+
+  return <NostrContext value={value}>{children}</NostrContext>;
 };
 
 export const useNostr = () => {
