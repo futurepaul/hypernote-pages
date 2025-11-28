@@ -3,10 +3,11 @@ import { useObservableState } from "observable-hooks";
 import { useMemo } from "react";
 import type { Filter as NostrFilter } from "nostr-tools";
 import { of, map } from "rxjs";
+import { parsePubkey, parseEventId, parseAddress } from "@/lib/nip19";
 
 export type NostrQuery =
-  | { type: "profile"; pubkey: string }
-  | { type: "event"; id: string }
+  | { type: "profile"; pubkey: string }  // accepts npub, nprofile, or hex
+  | { type: "event"; id: string }        // accepts nevent, note, or hex
   | { type: "address"; kind: number; pubkey: string; identifier?: string }
   | { type: "timeline"; filter: NostrFilter; limit?: number };
 
@@ -29,7 +30,7 @@ export type NostrQuery =
  * const events = useNostrQuery(query);
  */
 export function useNostrQuery(query: NostrQuery | undefined) {
-  const { eventStore, pool, addressLoader } = useNostr();
+  const { eventStore, pool, addressLoader, eventLoader } = useNostr();
 
   // Create observable based on query type
   const observable = useMemo(() => {
@@ -37,9 +38,13 @@ export function useNostrQuery(query: NostrQuery | undefined) {
 
     switch (query.type) {
       case "profile": {
-        // Validate pubkey
-        if (!query.pubkey || typeof query.pubkey !== "string" || query.pubkey.length !== 64) {
-          console.warn("⚠️ useNostrQuery - Invalid pubkey for profile query:", query.pubkey);
+        // Parse pubkey from npub, nprofile, or hex
+        let pubkey: string;
+        try {
+          const parsed = parsePubkey(query.pubkey);
+          pubkey = parsed.pubkey;
+        } catch (e) {
+          console.warn("⚠️ useNostrQuery - Invalid pubkey:", e);
           return undefined;
         }
 
@@ -47,7 +52,7 @@ export function useNostrQuery(query: NostrQuery | undefined) {
         // Parse the JSON content and merge it into the event object
         return addressLoader({
           kind: 0,
-          pubkey: query.pubkey
+          pubkey,
         }).pipe(
           map((event) => {
             if (!event) return event;
@@ -65,14 +70,20 @@ export function useNostrQuery(query: NostrQuery | undefined) {
       }
 
       case "event": {
-        // Validate event ID
-        if (!query.id || typeof query.id !== "string" || query.id.length !== 64) {
-          console.warn("⚠️ useNostrQuery - Invalid event ID:", query.id);
+        // Parse event id from nevent, note, or hex
+        let parsed;
+        try {
+          parsed = parseEventId(query.id);
+        } catch (e) {
+          console.warn("⚠️ useNostrQuery - Invalid event ID:", e);
           return undefined;
         }
 
-        // Use eventStore timeline for single event by ID
-        return eventStore.timeline({ ids: [query.id], limit: 1 });
+        // Use eventLoader to fetch event by ID (with relay hints if nevent)
+        return eventLoader({
+          id: parsed.id,
+          relays: parsed.relays,
+        });
       }
 
       case "address": {
@@ -105,7 +116,7 @@ export function useNostrQuery(query: NostrQuery | undefined) {
         console.warn("⚠️ useNostrQuery - Unknown query type:", (query as any).type);
         return undefined;
     }
-  }, [query, eventStore, pool, addressLoader]);
+  }, [query, eventStore, pool, addressLoader, eventLoader]);
 
   // Convert RxJS observable to React state using observable-hooks
   // This will re-render the component when the observable emits new values

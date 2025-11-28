@@ -3,17 +3,20 @@ import { RelayPool } from "applesauce-relay";
 import { ExtensionSigner } from "applesauce-signers";
 import {
   createAddressLoader,
+  createEventLoader,
   type AddressPointerLoader,
+  type EventPointerLoader,
 } from "applesauce-loaders/loaders";
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { nip19 } from "nostr-tools";
-import { LOOKUP_RELAYS } from "@/lib/relays";
+import { LOOKUP_RELAYS, DEFAULT_RELAYS } from "@/lib/relays";
 
 interface NostrContextValue {
   eventStore: EventStore;
   pool: RelayPool;
   signer: ExtensionSigner;
   addressLoader: AddressPointerLoader;
+  eventLoader: EventPointerLoader;
   pubkey: string | null;
   isReadonly: boolean;
   hasExtension: boolean;
@@ -29,6 +32,10 @@ const signer = new ExtensionSigner();
 const addressLoader = createAddressLoader(pool, {
   eventStore,
   lookupRelays: LOOKUP_RELAYS,
+});
+const eventLoader = createEventLoader(pool, {
+  eventStore,
+  extraRelays: DEFAULT_RELAYS,
 });
 eventStore.addressableLoader = addressLoader;
 eventStore.replaceableLoader = addressLoader;
@@ -104,6 +111,7 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
     pool,
     signer,
     addressLoader,
+    eventLoader,
     pubkey,
     isReadonly,
     hasExtension,

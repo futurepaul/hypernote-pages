@@ -51,20 +51,58 @@ export function usePages(authorPubkey?: string) {
 export function usePage(naddr: string) {
   const nostr = useNostr();
 
-  const decoded = nip19.decode(naddr);
-  if (decoded.type !== "naddr") {
-    throw new Error("Invalid naddr");
-  }
-  const { pubkey, identifier, relays } = decoded.data;
-  const queryRelays = relays?.length ? relays : DEFAULT_RELAYS;
+  // Parse naddr - must do this before hooks to get stable values
+  const parsed = useMemo(() => {
+    if (!naddr) return null;
+    try {
+      const decoded = nip19.decode(naddr);
+      if (decoded.type !== "naddr") return null;
+      const { pubkey, identifier, relays } = decoded.data;
+      return { pubkey, identifier, relays: relays?.length ? relays : DEFAULT_RELAYS };
+    } catch {
+      return null;
+    }
+  }, [naddr]);
 
+  // Always call the hook - return undefined observable if invalid
   return useObservableMemo(
-    () => nostr?.pool.relay(queryRelays[0]!).subscription([{ kinds: [32616], limit: 1, "#d": [identifier], authors: [pubkey] }])
-    .pipe(
-      onlyEvents(),
-      mapEventsToStore(nostr?.eventStore),
-      first(),
-    ),
-    [naddr]
+    () => {
+      if (!parsed) return undefined;
+      return nostr?.pool.relay(parsed.relays[0]!).subscription([{
+        kinds: [32616],
+        limit: 1,
+        "#d": [parsed.identifier],
+        authors: [parsed.pubkey]
+      }]).pipe(
+        onlyEvents(),
+        mapEventsToStore(nostr?.eventStore),
+        first(),
+      );
+    },
+    [naddr, parsed]
+  );
+}
+
+/**
+ * Fetch user's published components (hypernote-component tag)
+ */
+export function useUserComponents(authorPubkey?: string) {
+  const nostr = useNostr();
+  return useObservableMemo(
+    () => {
+      const filter: any = { kinds: [32616], "#t": ["hypernote-component"], limit: 20 };
+      if (authorPubkey) {
+        filter.authors = [authorPubkey];
+      }
+      return nostr?.pool.relay(DEFAULT_RELAYS[0]!).subscription([filter])
+      .pipe(
+        onlyEvents(),
+        mapEventsToStore(nostr?.eventStore),
+        mapEventsToTimeline(),
+        map((t) => [...t]),
+        startWith([]),
+      );
+    },
+    [nostr?.eventStore, authorPubkey]
   );
 }

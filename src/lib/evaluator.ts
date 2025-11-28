@@ -8,9 +8,8 @@ export interface EvaluationScope {
   // For <each> contexts
   item?: any;
   index?: number;
-  // Imported components
-  // TODO: do we need this?
-  // components?: Record<string, ParsedComponent>;
+  // Imported components (AST keyed by component name)
+  components?: Record<string, any>;
 }
 /**
  * Evaluate an expression against a scope

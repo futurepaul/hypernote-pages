@@ -3,6 +3,7 @@ import yaml from "yaml";
 import { useEffect, useState, useMemo } from "react";
 import { NodeRenderer } from "@/components/NodeRenderer";
 import { useNostrQuery, type NostrQuery } from "@/hooks/useNostrQuery";
+import { useComponents } from "@/hooks/useComponent";
 
 export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; parseError?: string | null }) {
   const [frontmatter, setFrontmatter] = useState<Record<string, any> | null>(
@@ -10,13 +11,13 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
   );
 
   useEffect(() => {
-    if (ast.children.find((child) => child.type === "frontmatter")) {
-      const frontmatter = ast.children.find(
-        (child) => child.type === "frontmatter"
-      )?.value;
-      if (frontmatter) {
-        const parsedFrontmatter = yaml.parse(frontmatter);
-        setFrontmatter(parsedFrontmatter);
+    const fmNode = ast.children.find((child) => child.type === "frontmatter");
+    if (fmNode?.value) {
+      try {
+        const parsed = yaml.parse(fmNode.value);
+        setFrontmatter(parsed);
+      } catch {
+        // Keep old frontmatter on parse error
       }
     }
   }, [ast]);
@@ -50,8 +51,11 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
   // ONE HOOK - get the data
   const queryResult = useNostrQuery(query);
 
+  // Load imported components from frontmatter
+  const importedComponents = useComponents(frontmatter?.imports);
+
   return (
-    <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden">
+    <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden max-w-full">
       <div className="p-2 border-b border-neutral-300">
         <h2 className="font-bold text-center">
           {frontmatter?.title || "Untitled"}
@@ -67,7 +71,7 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
 
       <div className="w-full max-h-full text-neutral-800 overflow-x-hidden overflow-y-auto">
         {parseError && <div className="text-red-500">{parseError}</div>}
-        <div className="p-4">
+        <div className="p-4 break-words">
           <NodeRenderer
             node={{ type: "root", children: ast.children }}
             key="root"
@@ -87,6 +91,7 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
               user: undefined,
               item: undefined,
               index: 0,
+              components: importedComponents,
             }}
           />
         </div>

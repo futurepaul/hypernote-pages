@@ -8,13 +8,15 @@ import { UserProfile } from "./UserProfile";
 import { nip19, validateEvent, type EventTemplate } from "nostr-tools";
 import { slugify } from "@/lib/utils";
 import yaml from "yaml";
-import { usePages } from "@/hooks/nostr";
+import { usePages, useUserComponents } from "@/hooks/nostr";
 import type { Event as NostrEvent } from "nostr-tools";
 import { Login } from "./Login";
 import { DEFAULT_RELAYS } from "@/lib/relays";
 import { Link } from "wouter";
 
-const defaultValue = `---
+type DocType = "page" | "component";
+
+const defaultPageValue = `---
 title: My First Page
 ---
 
@@ -23,19 +25,29 @@ title: My First Page
 This is my first page.
 `;
 
-const defaultAst: AST = await parseMdx(defaultValue);
+const defaultComponentValue = `---
+name: MyComponent
+---
+
+{props.message}
+`;
+
+const defaultPageAst: AST = await parseMdx(defaultPageValue);
+const defaultComponentAst: AST = await parseMdx(defaultComponentValue);
 
 export function Editor() {
   const nostr = useNostr();
   const { pubkey: userPubkey, isReadonly, logout } = nostr;
-  const [value, setValue] = useState(defaultValue);
-  const [parsedAst, setParsedAst] = useState<AST>(defaultAst);
+  const [value, setValue] = useState(defaultPageValue);
+  const [parsedAst, setParsedAst] = useState<AST>(defaultPageAst);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [docType, setDocType] = useState<DocType>("page");
 
   const [showFileBrowser, setShowFileBrowser] = useState(true);
   const [showProperties, setShowProperties] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const pages = usePages(userPubkey ?? undefined);
+  const components = useUserComponents(userPubkey ?? undefined);
 
   // TODO: debounce this
   useEffect(() => {
@@ -71,17 +83,22 @@ export function Editor() {
       }
       const meta = yaml.parse(frontmatter);
 
-      const title = meta?.title || 'Untitled';
-      const d = slugify(title);
+      // Use title for pages, name for components
+      const displayName = docType === "page"
+        ? (meta?.title || 'Untitled')
+        : (meta?.name || 'Unnamed');
+      const d = slugify(displayName);
       const version = '1.3.0';
       const content = JSON.stringify(parsedAst);
+
+      const typeTag = docType === "page" ? "hypernote-page" : "hypernote-component";
       const tags: string[][] = [
         ['d', d],
-        ['title', title],
+        [docType === "page" ? 'title' : 'name', displayName],
         ['status', 'published'],
         ['hypernote', version],
         ['t', 'hypernote'],
-        ['t', 'hypernote-page'],
+        ['t', typeTag],
         ['t', 'hypernote-v1.3.0'],
       ];
 
@@ -104,69 +121,85 @@ export function Editor() {
       }
 
       const naddr = nip19.naddrEncode({ pubkey: userPubkey, kind: 32616, identifier: d, relays: DEFAULT_RELAYS });
-      alert(`Published: ${naddr}`);
+      alert(`Published ${docType}: ${naddr}`);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Publish failed");
     }
     setIsPublishing(false);
   };
 
-  function FileBrowser({ pages }: { pages: NostrEvent[] }) {
-    const getTagValue = (event: NostrEvent, tagName: string) => {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const handleNewPage = () => {
+    setDocType("page");
+    setValue(defaultPageValue);
+    setSelectedId(null);
+  };
+
+  const handleNewComponent = () => {
+    setDocType("component");
+    setValue(defaultComponentValue);
+    setSelectedId(null);
+  };
+
+  const parseEvent = (event: NostrEvent) => {
+    const getTagValue = (tagName: string) => {
       const tag = event.tags.find((t) => t[0] === tagName);
       return tag?.[1];
     };
 
-    const parsed = pages.map((page) => {
-      const titleTag = getTagValue(page, 'title');
-      const statusTag = getTagValue(page, 'status');
-      const ast = JSON.parse(page.content);
+    const titleTag = getTagValue('title');
+    const nameTag = getTagValue('name');
+    const statusTag = getTagValue('status');
+    const ast = JSON.parse(event.content);
 
-      let title = titleTag;
-      if (!title) {
-        try {
-          const fm = ast.children.find((child: any) => child.type === "frontmatter")?.value;
-          title = yaml.parse(fm)?.title || 'Untitled';
-        } catch {
-          title = 'Untitled';
-        }
+    let displayName = titleTag || nameTag;
+    if (!displayName) {
+      try {
+        const fm = ast.children.find((child: any) => child.type === "frontmatter")?.value;
+        const meta = yaml.parse(fm);
+        displayName = meta?.title || meta?.name || 'Untitled';
+      } catch {
+        displayName = 'Untitled';
       }
-
-      return {
-        id: page.id,
-        title,
-        source: ast.source,
-        status: statusTag || 'published',
-      };
-    });
-
-    const [selectedPage, setSelectedPage] = useState<string | null>(null);
-
-    const handleSelectPage = (id: string) => {
-      setSelectedPage(id);
-      setValue(parsed.find((page) => page.id === id)?.source ?? "");
-    };
-
-    if (parsed.length === 0) {
-      return <div className="text-neutral-500 text-sm p-2">No pages yet</div>;
     }
 
+    return {
+      id: event.id,
+      displayName,
+      source: ast.source,
+      status: statusTag || 'published',
+    };
+  };
+
+  const handleSelectItem = (event: NostrEvent, type: DocType) => {
+    setSelectedId(event.id);
+    setDocType(type);
+    const parsed = parseEvent(event);
+    setValue(parsed.source);
+  };
+
+  function FileList({ events, type, label }: { events: NostrEvent[]; type: DocType; label: string }) {
+    const parsed = events.map(parseEvent);
+
     return (
-      <div className="flex flex-col gap-1">
-        {parsed.map((page) => (
-          <div
-            key={page.id}
-            className={`hover:bg-neutral-600 p-2 rounded-md cursor-pointer ${selectedPage === page.id ? "bg-neutral-600" : ""}`}
-            onClick={() => handleSelectPage(page.id)}
-          >
-            <div className="text-sm">{page.title}</div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-xs px-2 py-0.5 rounded ${page.status === "published" ? "bg-green-600" : "bg-yellow-600"}`}>
-                {page.status}
-              </span>
-            </div>
+      <div className="mb-4">
+        <div className="text-xs uppercase text-neutral-400 mb-1 px-2">{label}</div>
+        {parsed.length === 0 ? (
+          <div className="text-neutral-500 text-sm px-2">None</div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {parsed.map((item, i) => (
+              <div
+                key={item.id}
+                className={`hover:bg-neutral-600 p-2 rounded-md cursor-pointer ${selectedId === item.id ? "bg-neutral-600" : ""}`}
+                onClick={() => handleSelectItem(events[i]!, type)}
+              >
+                <div className="text-sm">{item.displayName}</div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     );
   }
@@ -179,6 +212,9 @@ export function Editor() {
             &larr; Home
           </Link>
           <h1 className="text-xl font-bold">Editor</h1>
+          <span className="text-sm text-neutral-400">
+            {docType === "page" ? "Page" : "Component"}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           {isReadonly && <span className="text-yellow-500 text-sm">Read-only</span>}
@@ -187,7 +223,7 @@ export function Editor() {
             onClick={handlePublish}
             disabled={isPublishing || isReadonly}
           >
-            {isPublishing ? "Publishing..." : "Publish"}
+            {isPublishing ? "Publishing..." : `Publish ${docType}`}
           </button>
         </div>
       </div>
@@ -195,8 +231,23 @@ export function Editor() {
       <div className="flex-1 flex overflow-hidden">
         {showFileBrowser && (
           <div className="w-[256px] p-2 flex flex-col">
+            <div className="flex gap-2 mb-2">
+              <button
+                onClick={handleNewPage}
+                className="flex-1 text-sm bg-neutral-700 hover:bg-neutral-600 px-2 py-1 rounded"
+              >
+                + Page
+              </button>
+              <button
+                onClick={handleNewComponent}
+                className="flex-1 text-sm bg-neutral-700 hover:bg-neutral-600 px-2 py-1 rounded"
+              >
+                + Component
+              </button>
+            </div>
             <div className="bg-neutral-700 p-2 rounded-md border border-neutral-600 flex-1 overflow-auto">
-              <FileBrowser pages={pages ?? []} />
+              <FileList events={pages ?? []} type="page" label="Pages" />
+              <FileList events={components ?? []} type="component" label="Components" />
             </div>
             <div className="mt-2 p-2 bg-neutral-800 rounded-md border border-neutral-700">
               <UserProfile pubkey={userPubkey} />
@@ -209,10 +260,10 @@ export function Editor() {
             </div>
           </div>
         )}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <MarkdownEditor value={value} onChange={(value) => setValue(value)} />
         </div>
-        <div className="flex-1 p-4 flex flex-col items-center gap-4">
+        <div className="flex-1 min-w-0 p-4 flex flex-col items-center gap-4 overflow-auto">
           <Preview ast={parsedAst} parseError={parseError} />
         </div>
         {showProperties && (

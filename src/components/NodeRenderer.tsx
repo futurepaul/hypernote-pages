@@ -1,5 +1,5 @@
 import type { AST, Node as MDXNode } from "zig-mdx";
-import { memo, useEffect, useState } from "react";
+import { memo } from "react";
 import {
   evaluate,
   parseAttributes,
@@ -9,6 +9,7 @@ import type {
   JsxElementNode,
   JsxSelfClosingNode,
 } from "node_modules/zig-mdx/dist/types";
+import { builtinComponents } from "@/lib/builtins";
 
 function renderChildren(
   children: MDXNode[],
@@ -163,104 +164,64 @@ function renderJsxElement(
   scope: EvaluationScope
 ) {
   const componentName = node.name.trim();
-  console.log(
-    "🎯 renderJsxComponent called - node.name:",
-    node.name,
-    "componentName:",
-    componentName,
-    "node.type:",
-    node.type
-  );
-
   const attrs = parseAttributes(node.attributes || [], scope);
-
   const children = node.children
     ? renderChildren(node.children, key, scope)
     : null;
 
-  switch (componentName.toLowerCase()) {
-    case "hstack":
-      return <div className="flex flex-row gap-2">{children}</div>;
+  // Each is special - needs scope manipulation
+  if (componentName.toLowerCase() === "each") {
+    const fromArray = attrs.from;
+    const asName = attrs.as;
 
-    case "vstack":
-      return <div className="flex flex-col gap-2">{children}</div>;
-
-    case "text":
-      console.log("📝 Rendering <text> with children:", children);
-      return <span className="text-component">{children}</span>;
-
-    case "img":
-      return (
-        <img
-          src={attrs.src}
-          alt={attrs.alt || ""}
-          width={attrs.width}
-          className="inline-block"
-        />
-      );
-
-    case "each": {
-      const fromArray = attrs.from;
-      const asName = attrs.as;
-
-      // Handle loading state
-      if (!fromArray || !Array.isArray(fromArray)) {
-        return null;
-      }
-
-      if (!asName) {
-        console.warn("[Each] 'as' attribute is required");
-        return null;
-      }
-
-      return (
-        <>
-          {fromArray.map((item: any, itemIndex: number) => {
-            // Use stable key - try item.id, then item.pubkey, then index
-            const key = item?.id || item?.pubkey || itemIndex;
-
-            const itemScope = {
-              ...scope,
-              [asName]: item,
-              index: itemIndex,
-            };
-
-            return <EachItem key={key} node={node} itemScope={itemScope} />;
-          })}
-        </>
-      );
+    if (!fromArray || !Array.isArray(fromArray)) {
+      return null;
+    }
+    if (!asName) {
+      console.warn("[Each] 'as' attribute is required");
+      return null;
     }
 
-    default: {
-      // console.log("🔍 renderJsxComponent - componentName:", componentName, "available components:", Object.keys(components));
-
-      // TODO: use global component registry
-      //
-      // // Check if it's a global component
-      // if (components[componentName]) {
-      //   console.log("✅ Found component in registry, calling ComponentRenderer with props:", attrs);
-      //   const component = components[componentName];
-      //   // Lazy import to avoid circular dependency
-      //   const { ComponentRenderer } = require("./ComponentRenderer");
-      //   return (
-      //     <ComponentRenderer
-      //       component={component}
-      //       props={attrs}
-      //     />
-      //   );
-      // }
-
-      // Unknown component
-      console.warn(
-        `❌ Unknown JSX component: ${componentName}`,
-        "attrs:",
-        attrs,
-        "children:",
-        children
-      );
-      return <div className="unknown-component">{children}</div>;
-    }
+    return (
+      <>
+        {fromArray.map((item: any, itemIndex: number) => {
+          const itemKey = item?.id || item?.pubkey || itemIndex;
+          const itemScope = {
+            ...scope,
+            [asName]: item,
+            index: itemIndex,
+          };
+          return <EachItem key={itemKey} node={node} itemScope={itemScope} />;
+        })}
+      </>
+    );
   }
+
+  // Check built-in components (case-insensitive lookup)
+  const builtinKey = Object.keys(builtinComponents).find(
+    (k) => k.toLowerCase() === componentName.toLowerCase()
+  );
+  if (builtinKey) {
+    const BuiltinComponent = builtinComponents[builtinKey]!;
+    return <BuiltinComponent {...attrs}>{children}</BuiltinComponent>;
+  }
+
+  // Check imported components from scope
+  if (scope.components?.[componentName]) {
+    const importedAst = scope.components[componentName];
+    // Render imported component with props passed via scope
+    return (
+      <NodeRenderer
+        node={importedAst}
+        keyName={`${key}-imported`}
+        scope={{ ...scope, props: attrs, components: {} }}
+      />
+    );
+  }
+
+  // Unknown component
+  console.warn(`Unknown JSX component: ${componentName}`);
+  return <div className="unknown-component">{children}</div>;
 }
 
 /**
@@ -297,27 +258,28 @@ function renderJsxSelfClosing(
   scope: EvaluationScope
 ) {
   const componentName = node.name.trim();
-  console.log(
-    "🎯 renderJsxComponent called - node.name:",
-    node.name,
-    "componentName:",
-    componentName,
-    "node.type:",
-    node.type
-  );
-
   const attrs = parseAttributes(node.attributes || [], scope);
-  switch (componentName.toLowerCase()) {
-    case "img":
-      return (
-        <img
-          src={attrs.src}
-          alt={attrs.alt || ""}
-          width={attrs.width}
-          className="inline-block"
-        />
-      );
-    default:
-      return <div>Unknown self-closing component: {componentName}</div>;
+
+  // Check built-in components (case-insensitive lookup)
+  const builtinKey = Object.keys(builtinComponents).find(
+    (k) => k.toLowerCase() === componentName.toLowerCase()
+  );
+  if (builtinKey) {
+    const BuiltinComponent = builtinComponents[builtinKey]!;
+    return <BuiltinComponent {...attrs} />;
   }
+
+  // Check imported components from scope
+  if (scope.components?.[componentName]) {
+    const importedAst = scope.components[componentName];
+    return (
+      <NodeRenderer
+        node={importedAst}
+        keyName={`${key}-imported`}
+        scope={{ ...scope, props: attrs, components: {} }}
+      />
+    );
+  }
+
+  return <div>Unknown self-closing component: {componentName}</div>;
 }
