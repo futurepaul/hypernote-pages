@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useNostrQuery } from "@/hooks/useNostrQuery";
 import { parsePubkey, parseEventId } from "@/lib/nip19";
+import { useForm } from "@/components/FormContext";
 
 // =============================================================================
 // LAYOUT COMPONENTS (no data fetching)
@@ -127,6 +128,55 @@ export function Profile({ pubkey }: { pubkey: string }) {
 }
 
 // =============================================================================
+// FORM COMPONENTS
+// =============================================================================
+
+export function Input({ name, placeholder }: { name: string; placeholder?: string }) {
+  const { form, updateForm } = useForm();
+  return (
+    <input
+      type="text"
+      name={name}
+      value={form[name] ?? ""}
+      placeholder={placeholder ?? name}
+      onChange={(e) => updateForm(name, e.target.value)}
+      className="border border-neutral-400 rounded px-2 py-1 w-full bg-white"
+    />
+  );
+}
+
+export function Textarea({ name, placeholder, rows }: { name: string; placeholder?: string; rows?: number }) {
+  const { form, updateForm } = useForm();
+  return (
+    <textarea
+      name={name}
+      value={form[name] ?? ""}
+      placeholder={placeholder ?? name}
+      rows={rows ?? 4}
+      onChange={(e) => updateForm(name, e.target.value)}
+      className="border border-neutral-400 rounded px-2 py-1 w-full bg-white resize-y"
+    />
+  );
+}
+
+export function Button({ action, children }: { action?: string; children?: ReactNode }) {
+  const { executeAction, isPublishing } = useForm();
+  return (
+    <button
+      onClick={() => action && executeAction(action)}
+      disabled={isPublishing}
+      className={
+        isPublishing
+          ? "bg-neutral-400 text-white px-4 py-2 rounded cursor-wait"
+          : "bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      }
+    >
+      {isPublishing ? "Publishing..." : children}
+    </button>
+  );
+}
+
+// =============================================================================
 // COMPONENT REGISTRY
 // =============================================================================
 
@@ -137,4 +187,7 @@ export const builtinComponents: Record<string, React.ComponentType<any>> = {
   Img,
   Note,
   Profile,
+  Input,
+  Textarea,
+  Button,
 };
