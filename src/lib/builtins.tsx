@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useNostrQuery } from "@/hooks/useNostrQuery";
 import { parsePubkey, parseEventId } from "@/lib/nip19";
-import { useForm } from "@/components/FormContext";
+import { useScope } from "@/hooks/usePageContext";
 
 // =============================================================================
 // LAYOUT COMPONENTS (no data fetching)
@@ -132,7 +132,7 @@ export function Profile({ pubkey }: { pubkey: string }) {
 // =============================================================================
 
 export function Input({ name, placeholder }: { name: string; placeholder?: string }) {
-  const { form, updateForm } = useForm();
+  const { form, updateForm } = useScope();
   return (
     <input
       type="text"
@@ -146,7 +146,7 @@ export function Input({ name, placeholder }: { name: string; placeholder?: strin
 }
 
 export function Textarea({ name, placeholder, rows }: { name: string; placeholder?: string; rows?: number }) {
-  const { form, updateForm } = useForm();
+  const { form, updateForm } = useScope();
   return (
     <textarea
       name={name}
@@ -160,7 +160,7 @@ export function Textarea({ name, placeholder, rows }: { name: string; placeholde
 }
 
 export function Button({ action, children }: { action?: string; children?: ReactNode }) {
-  const { executeAction, isPublishing } = useForm();
+  const { executeAction, isPublishing } = useScope();
   return (
     <button
       onClick={() => action && executeAction(action)}

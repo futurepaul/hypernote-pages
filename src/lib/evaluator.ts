@@ -2,14 +2,17 @@ export interface EvaluationScope {
   props?: Record<string, any>;
   queries?: Record<string, any>;
   state?: Record<string, any>;
-  form?: Record<string, any>;
-  // User pubkey
+  form: Record<string, string>;
   user?: string;
   // For <each> contexts
   item?: any;
   index?: number;
   // Imported components (AST keyed by component name)
   components?: Record<string, any>;
+  // Form functions (used by builtins)
+  updateForm: (name: string, value: string) => void;
+  executeAction: (actionName: string) => Promise<void>;
+  isPublishing: boolean;
 }
 /**
  * Evaluate an expression against a scope
