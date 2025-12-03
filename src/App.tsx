@@ -3,7 +3,7 @@ import "non.geist/mono";
 import "./index.css";
 import { Route, Switch } from "wouter";
 import { Editor } from "@/components/Editor";
-import { Viewer } from "@/components/Viewer";
+import { IframeViewer } from "@/components/IframeViewer";
 import { NostrProvider } from "./components/NostrContext";
 import { Home } from "./components/Home";
 
@@ -11,7 +11,7 @@ export function App() {
   return (
     <NostrProvider>
       <Switch>
-        <Route path="/hn/:id">{(params) => <Viewer id={params.id} />}</Route>
+        <Route path="/hn/:id">{(params) => <IframeViewer id={params.id} />}</Route>
         <Route path="/editor" component={() => <Editor />} />
         <Route path="/">{() => <Home />}</Route>
 
