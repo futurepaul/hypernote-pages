@@ -2,8 +2,11 @@ import { useNostr } from "@/components/NostrContext";
 import { useObservableState } from "observable-hooks";
 import { useMemo } from "react";
 import type { Filter as NostrFilter } from "nostr-tools";
-import { of, map } from "rxjs";
+import { of, map, startWith } from "rxjs";
+import { onlyEvents } from "applesauce-relay";
+import { mapEventsToStore, mapEventsToTimeline } from "applesauce-core/observable";
 import { parsePubkey, parseEventId, parseAddress } from "@/lib/nip19";
+import { DEFAULT_RELAYS } from "@/lib/relays";
 
 export type NostrQuery =
   | { type: "profile"; pubkey: string }  // accepts npub, nprofile, or hex
@@ -108,8 +111,16 @@ export function useNostrQuery(query: NostrQuery | undefined) {
           return undefined;
         }
 
-        // Use eventStore timeline with filter
-        return eventStore.timeline(query.filter);
+        // Subscribe to relays and pipe events through store to timeline
+        // This creates a live subscription that updates as new events arrive
+        return pool.relay(DEFAULT_RELAYS[0]!).subscription([query.filter])
+          .pipe(
+            onlyEvents(),
+            mapEventsToStore(eventStore),
+            mapEventsToTimeline(),
+            map((t) => [...t]),
+            startWith([]),
+          );
       }
 
       default:
