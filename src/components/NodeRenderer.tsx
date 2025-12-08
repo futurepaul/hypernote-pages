@@ -79,6 +79,9 @@ export function NodeRenderer({
       }
       return <div>Unknown heading level: {node.level}</div>;
 
+    case "hard_break":
+      return <br />;
+
     case "paragraph":
       return <p>{renderChildren(node.children, key, scope)}</p>;
     case "text":

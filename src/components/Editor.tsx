@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { Preview } from "./Preview";
-import { parseMdx } from "@/lib/wasm";
+import { PropertiesPanel } from "./PropertiesPanel";
+import { parseMdxWithPositions, renderMdx } from "@/lib/wasm";
 import type { AST } from "zig-mdx";
 import { useNostr } from "./NostrContext";
 import { UserProfile } from "./UserProfile";
@@ -32,8 +33,8 @@ name: MyComponent
 {props.message}
 `;
 
-const defaultPageAst: AST = await parseMdx(defaultPageValue);
-const defaultComponentAst: AST = await parseMdx(defaultComponentValue);
+const defaultPageAst: AST = await parseMdxWithPositions(defaultPageValue);
+const defaultComponentAst: AST = await parseMdxWithPositions(defaultComponentValue);
 
 export function Editor() {
   const nostr = useNostr();
@@ -44,8 +45,9 @@ export function Editor() {
   const [docType, setDocType] = useState<DocType>("page");
 
   const [showFileBrowser, setShowFileBrowser] = useState(true);
-  const [showProperties, setShowProperties] = useState(false);
+  const [showProperties, setShowProperties] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [cursorOffset, setCursorOffset] = useState(0);
   const pages = usePages(userPubkey ?? undefined);
   const components = useUserComponents(userPubkey ?? undefined);
 
@@ -54,7 +56,7 @@ export function Editor() {
     async function parse() {
       try {
         setParseError(null);
-        const ast = await parseMdx(value);
+        const ast = await parseMdxWithPositions(value);
         setParsedAst(ast);
       } catch (error) {
         console.error(error);
@@ -219,6 +221,15 @@ export function Editor() {
         <div className="flex items-center gap-3">
           {isReadonly && <span className="text-yellow-500 text-sm">Read-only</span>}
           <button
+            className="bg-neutral-700 hover:bg-neutral-600 text-white px-4 py-2 rounded-md transition-colors"
+            onClick={async () => {
+              const formatted = await renderMdx(value);
+              setValue(formatted);
+            }}
+          >
+            Format
+          </button>
+          <button
             className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-md transition-colors"
             onClick={handlePublish}
             disabled={isPublishing || isReadonly}
@@ -261,13 +272,20 @@ export function Editor() {
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <MarkdownEditor value={value} onChange={(value) => setValue(value)} />
+          <MarkdownEditor
+            value={value}
+            onChange={(value) => setValue(value)}
+            onCursorChange={setCursorOffset}
+          />
         </div>
         <div className="flex-1 min-w-0 p-4 flex flex-col items-center gap-4 overflow-auto">
           <Preview ast={parsedAst} parseError={parseError} />
         </div>
         {showProperties && (
-          <div className="w-[256px] bg-blue-500">Properties Go Here</div>
+          <div className="w-[256px] p-3 bg-neutral-800 border-l border-neutral-700 overflow-auto">
+            <div className="text-xs uppercase text-neutral-400 mb-3">Properties</div>
+            <PropertiesPanel ast={parsedAst} cursorOffset={cursorOffset} />
+          </div>
         )}
       </div>
     </div>
