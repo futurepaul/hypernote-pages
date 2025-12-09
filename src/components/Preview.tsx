@@ -3,6 +3,12 @@ import yaml from "yaml";
 import { useMemo } from "react";
 import { NodeRenderer } from "@/components/NodeRenderer";
 import { usePageContext, ScopeProvider } from "@/hooks/usePageContext";
+import {
+  type CanvasConfig,
+  parseColor,
+  detectBgType,
+  ASPECT_MAP,
+} from "@/lib/styles";
 
 export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; parseError?: string | null }) {
   // Parse frontmatter from AST
@@ -18,8 +24,44 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
     return null;
   }, [ast]);
 
+  // Extract canvas config
+  const canvas: CanvasConfig = frontmatter?.canvas ?? {};
+
   // One hook for everything - returns unified scope
   const scope = usePageContext(frontmatter);
+
+  // Resolve canvas styles
+  const canvasStyles = useMemo(() => {
+    const styles: React.CSSProperties = {
+      position: "relative",
+      width: "100%",
+      overflow: "hidden",
+    };
+
+    // Aspect ratio
+    if (canvas.aspect && canvas.aspect !== "flexible") {
+      const aspectValue = ASPECT_MAP[canvas.aspect];
+      if (aspectValue) {
+        styles.aspectRatio = aspectValue;
+      }
+    }
+
+    // Background
+    if (canvas.bg) {
+      const bgType = detectBgType(canvas.bg);
+      if (bgType === "color") {
+        const color = parseColor(canvas.bg);
+        if (color) {
+          styles.backgroundColor = color;
+        }
+      }
+      // Image and video backgrounds are handled in JSX below
+    }
+
+    return styles;
+  }, [canvas]);
+
+  const bgType = canvas.bg ? detectBgType(canvas.bg) : null;
 
   return (
     <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden max-w-full">
@@ -34,15 +76,63 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
 
       <div className="w-full max-h-full text-neutral-800 overflow-x-hidden overflow-y-auto">
         {parseError && <div className="text-red-500">{parseError}</div>}
-        <div className="p-4 wrap-break-words">
-          <ScopeProvider value={scope}>
-            <NodeRenderer
-              node={{ type: "root", children: ast.children }}
-              key="root"
-              keyName="root"
-              scope={scope}
+
+        {/* Canvas wrapper with aspect ratio and background */}
+        <div style={canvasStyles}>
+          {/* Background image */}
+          {bgType === "image" && canvas.bg && (
+            <img
+              src={canvas.bg}
+              alt=""
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                zIndex: 0,
+              }}
             />
-          </ScopeProvider>
+          )}
+
+          {/* Background video */}
+          {bgType === "video" && canvas.bg && (
+            <video
+              src={canvas.bg}
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                zIndex: 0,
+              }}
+            />
+          )}
+
+          {/* Content layer */}
+          <div
+            style={{
+              position: "relative",
+              zIndex: 1,
+              padding: "1rem",
+              minHeight: canvas.aspect && canvas.aspect !== "flexible" ? "100%" : undefined,
+            }}
+            className="wrap-break-words"
+          >
+            <ScopeProvider value={scope}>
+              <NodeRenderer
+                node={{ type: "root", children: ast.children }}
+                key="root"
+                keyName="root"
+                scope={scope}
+              />
+            </ScopeProvider>
+          </div>
         </div>
       </div>
 

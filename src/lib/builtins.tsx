@@ -8,33 +8,111 @@ import { useMemo } from "react";
 import { useNostrQuery } from "@/hooks/useNostrQuery";
 import { parsePubkey, parseEventId } from "@/lib/nip19";
 import { useScope } from "@/hooks/usePageContext";
+import {
+  type ContainerStyleProps,
+  type TextStyleProps,
+  type ImgStyleProps,
+  resolveContainerStyles,
+  resolvePositionStyles,
+  resolveTextStyles,
+  resolveImgStyles,
+} from "@/lib/styles";
 
 // =============================================================================
 // LAYOUT COMPONENTS (no data fetching)
 // =============================================================================
 
-export function HStack({ children }: { children?: ReactNode }) {
-  return <div className="flex flex-row gap-2">{children}</div>;
+interface StackProps extends ContainerStyleProps {
+  children?: ReactNode;
 }
 
-export function VStack({ children }: { children?: ReactNode }) {
-  return <div className="flex flex-col gap-2">{children}</div>;
+export function HStack(props: StackProps) {
+  const { children, position, offset, ...styleProps } = props;
+  const containerStyles = resolveContainerStyles(styleProps);
+  const positionStyles = resolvePositionStyles({ position, offset });
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        ...containerStyles,
+        ...positionStyles,
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
-export function Text({ children }: { children?: ReactNode }) {
-  return <span>{children}</span>;
+export function VStack(props: StackProps) {
+  const { children, position, offset, ...styleProps } = props;
+  const containerStyles = resolveContainerStyles(styleProps);
+  const positionStyles = resolvePositionStyles({ position, offset });
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        ...containerStyles,
+        ...positionStyles,
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
-export function Img({
-  src,
-  alt,
-  width,
-}: {
+export function ZStack(props: StackProps) {
+  const { children, position, offset, ...styleProps } = props;
+  const containerStyles = resolveContainerStyles(styleProps);
+  const positionStyles = resolvePositionStyles({ position, offset });
+
+  return (
+    <div
+      style={{
+        position: positionStyles.position ?? "relative",
+        display: "flex",
+        ...containerStyles,
+        ...positionStyles,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+interface TextProps extends TextStyleProps {
+  children?: ReactNode;
+}
+
+export function Text(props: TextProps) {
+  const { children, ...styleProps } = props;
+  const styles = resolveTextStyles(styleProps);
+
+  return <span style={styles}>{children}</span>;
+}
+
+interface ImgProps extends ImgStyleProps {
   src?: string;
   alt?: string;
-  width?: string | number;
-}) {
-  return <img src={src} alt={alt || ""} width={width} className="inline-block" />;
+}
+
+export function Img(props: ImgProps) {
+  const { src, alt, ...styleProps } = props;
+  const styles = resolveImgStyles(styleProps);
+
+  return (
+    <img
+      src={src}
+      alt={alt || ""}
+      style={{
+        display: "inline-block",
+        ...styles,
+      }}
+    />
+  );
 }
 
 // =============================================================================
@@ -183,6 +261,7 @@ export function Button({ action, children }: { action?: string; children?: React
 export const builtinComponents: Record<string, React.ComponentType<any>> = {
   HStack,
   VStack,
+  ZStack,
   Text,
   Img,
   Note,
