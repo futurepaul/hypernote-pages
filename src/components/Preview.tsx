@@ -24,8 +24,11 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
     return null;
   }, [ast]);
 
-  // Extract canvas config
-  const canvas: CanvasConfig = frontmatter?.canvas ?? {};
+  // Extract canvas config - support both `canvas: { aspect, bg }` and root-level `aspect`, `bg`
+  const canvas: CanvasConfig = {
+    aspect: frontmatter?.canvas?.aspect ?? frontmatter?.aspect,
+    bg: frontmatter?.canvas?.bg ?? frontmatter?.bg,
+  };
 
   // One hook for everything - returns unified scope
   const scope = usePageContext(frontmatter);
@@ -63,9 +66,13 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
 
   const bgType = canvas.bg ? detectBgType(canvas.bg) : null;
 
+  const isFixedAspect = canvas.aspect && canvas.aspect !== "flexible";
+
   return (
-    <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden max-w-full">
-      <div className="p-2 border-b border-neutral-300">
+    <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden flex flex-col"
+      style={{ maxWidth: isFixedAspect ? "400px" : "100%" }}
+    >
+      <div className="p-2 border-b border-neutral-300 shrink-0">
         <h2 className="font-bold text-center">{frontmatter?.title || "Untitled"}</h2>
         {naddr && (
           <div className="text-sm text-neutral-500">
@@ -74,69 +81,73 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
         )}
       </div>
 
-      <div className="w-full max-h-full text-neutral-800 overflow-x-hidden overflow-y-auto">
-        {parseError && <div className="text-red-500">{parseError}</div>}
+      {parseError && <div className="text-red-500 p-2">{parseError}</div>}
 
-        {/* Canvas wrapper with aspect ratio and background */}
-        <div style={canvasStyles}>
-          {/* Background image */}
-          {bgType === "image" && canvas.bg && (
-            <img
-              src={canvas.bg}
-              alt=""
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                zIndex: 0,
-              }}
-            />
-          )}
-
-          {/* Background video */}
-          {bgType === "video" && canvas.bg && (
-            <video
-              src={canvas.bg}
-              autoPlay
-              loop
-              muted
-              playsInline
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                zIndex: 0,
-              }}
-            />
-          )}
-
-          {/* Content layer */}
-          <div
+      {/* Canvas wrapper with aspect ratio and background */}
+      <div
+        style={canvasStyles}
+        className={isFixedAspect ? "" : "overflow-y-auto"}
+      >
+        {/* Background image */}
+        {bgType === "image" && canvas.bg && (
+          <img
+            src={canvas.bg}
+            alt=""
             style={{
-              position: "relative",
-              zIndex: 1,
-              padding: "1rem",
-              minHeight: canvas.aspect && canvas.aspect !== "flexible" ? "100%" : undefined,
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              zIndex: 0,
             }}
-            className="wrap-break-words"
-          >
-            <ScopeProvider value={scope}>
-              <NodeRenderer
-                node={{ type: "root", children: ast.children }}
-                key="root"
-                keyName="root"
-                scope={scope}
-              />
-            </ScopeProvider>
-          </div>
+          />
+        )}
+
+        {/* Background video */}
+        {bgType === "video" && canvas.bg && (
+          <video
+            src={canvas.bg}
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              zIndex: 0,
+            }}
+          />
+        )}
+
+        {/* Content layer */}
+        <div
+          style={{
+            position: isFixedAspect ? "absolute" : "relative",
+            inset: isFixedAspect ? 0 : undefined,
+            zIndex: 1,
+            padding: "1rem",
+            display: "flex",
+            flexDirection: "column",
+            overflow: isFixedAspect ? "hidden" : undefined,
+          }}
+          className="wrap-break-words"
+        >
+          <ScopeProvider value={scope}>
+            <NodeRenderer
+              node={{ type: "root", children: ast.children }}
+              key="root"
+              keyName="root"
+              scope={scope}
+            />
+          </ScopeProvider>
         </div>
       </div>
 
-      <div className="p-2 border-t border-neutral-300 max-h-64 overflow-y-auto">
+      <div className="p-2 border-t border-neutral-300 max-h-64 overflow-y-auto shrink-0">
         <pre className="text-xs bg-neutral-900 text-neutral-200 p-4 rounded-sm whitespace-pre-wrap break-all">
           {JSON.stringify(ast, null, 2)}
         </pre>

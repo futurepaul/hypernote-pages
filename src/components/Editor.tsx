@@ -284,7 +284,12 @@ export function Editor() {
         {showProperties && (
           <div className="w-[256px] p-3 bg-neutral-800 border-l border-neutral-700 overflow-auto">
             <div className="text-xs uppercase text-neutral-400 mb-3">Properties</div>
-            <PropertiesPanel ast={parsedAst} cursorOffset={cursorOffset} />
+            <PropertiesPanel
+              ast={parsedAst}
+              cursorOffset={cursorOffset}
+              source={value}
+              onSourceChange={setValue}
+            />
           </div>
         )}
       </div>

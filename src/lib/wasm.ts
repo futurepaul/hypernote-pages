@@ -1,5 +1,5 @@
 import { init, parse, parseWithPositions, render, nodeAtOffset } from "zig-mdx";
-import type { AST, Node } from "zig-mdx";
+import type { AST, Node, JsxAttribute } from "zig-mdx";
 
 export async function parseMdx(source: string): Promise<AST> {
   await init("/mdx.wasm");
@@ -17,4 +17,4 @@ export async function renderMdx(source: string): Promise<string> {
 }
 
 export { nodeAtOffset };
-export type { AST, Node };
+export type { AST, Node, JsxAttribute };
