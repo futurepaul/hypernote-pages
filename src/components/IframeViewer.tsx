@@ -21,12 +21,10 @@ function IframePreview({ ast }: { ast: AST }) {
   const scope = usePageContext(frontmatter);
 
   return (
-    <div className="min-h-screen bg-neutral-200 text-neutral-800">
+    <div className="min-h-screen max-h-screen bg-neutral-200 text-neutral-800 grid grid-rows-[auto_1fr]">
       <div className="p-2 border-b border-neutral-300">
         <h2 className="font-bold text-center">{frontmatter?.title || "Untitled"}</h2>
       </div>
-
-      <div className="p-4 wrap-break-words">
         <ScopeProvider value={scope}>
           <NodeRenderer
             node={{ type: "root", children: ast.children }}
@@ -35,7 +33,6 @@ function IframePreview({ ast }: { ast: AST }) {
             scope={scope}
           />
         </ScopeProvider>
-      </div>
     </div>
   );
 }

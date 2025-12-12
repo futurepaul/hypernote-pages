@@ -1,8 +1,8 @@
 import { nodeAtOffset, type AST, type Node, type JsxAttribute } from "@/lib/wasm";
 import {
   CONTAINER_PROPERTIES,
+  ZSTACK_PROPERTIES,
   TEXT_PROPERTIES,
-  POSITION_PROPERTIES,
   type PropertyDefinition,
 } from "@/lib/styles";
 
@@ -15,19 +15,18 @@ interface Props {
 
 // Map component names to their property definitions
 const COMPONENT_PROPERTIES: Record<string, PropertyDefinition[]> = {
-  vstack: [...CONTAINER_PROPERTIES, ...POSITION_PROPERTIES],
-  hstack: [...CONTAINER_PROPERTIES, ...POSITION_PROPERTIES],
-  zstack: [...CONTAINER_PROPERTIES, ...POSITION_PROPERTIES],
-  text: [...TEXT_PROPERTIES, ...POSITION_PROPERTIES],
+  vstack: CONTAINER_PROPERTIES,
+  hstack: CONTAINER_PROPERTIES,
+  zstack: ZSTACK_PROPERTIES,
+  text: TEXT_PROPERTIES,
   img: [
     { name: "src", type: "text", group: "appearance" },
     { name: "alt", type: "text", group: "appearance" },
     { name: "fit", type: "select", options: ["contain", "cover", "fill", "none"], default: "contain", group: "appearance" },
-    { name: "width", type: "select", options: ["auto", "fit", "half", "full", "screen"], default: "auto", group: "size" },
-    { name: "height", type: "select", options: ["auto", "fit", "half", "full", "screen"], default: "auto", group: "size" },
+    { name: "width", type: "select", options: ["auto", "fit", "half", "full"], default: "auto", group: "size" },
+    { name: "height", type: "select", options: ["auto", "fit", "half", "full"], default: "auto", group: "size" },
     { name: "rounded", type: "select", options: ["none", "sm", "md", "lg", "xl", "2xl", "full"], default: "none", group: "appearance" },
     { name: "opacity", type: "select", options: ["100", "90", "80", "70", "60", "50", "40", "30", "20", "10", "0"], default: "100", group: "appearance" },
-    ...POSITION_PROPERTIES,
   ],
 };
 
@@ -38,7 +37,7 @@ const GROUP_LABELS: Record<string, string> = {
   appearance: "Appearance",
   spacing: "Spacing",
   text: "Text",
-  position: "Position",
+  alignment: "Alignment",
 };
 
 export function PropertiesPanel({ ast, cursorOffset, source, onSourceChange }: Props) {

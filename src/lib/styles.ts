@@ -13,7 +13,10 @@
 export type SpacingValue = "0" | "1" | "2" | "3" | "4" | "6" | "8" | "12" | "16";
 
 /** Size values for width/height */
-export type SizeValue = "auto" | "fit" | "half" | "full" | "screen" | `${number}%`;
+export type SizeValue = "auto" | "fit" | "half" | "full" | `${number}%`;
+
+/** Flex grow values (for VStack/HStack children) */
+export type GrowValue = "0" | "1";
 
 /** Border radius values */
 export type RoundedValue = "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "full";
@@ -30,13 +33,8 @@ export type AlignValue = "start" | "center" | "end" | "stretch" | "baseline";
 /** Overflow values */
 export type OverflowValue = "visible" | "hidden" | "scroll" | "auto";
 
-/** Position anchors for ZStack children */
-export type PositionValue =
-  | "fill"
-  | "center"
-  | "top" | "top-left" | "top-right"
-  | "bottom" | "bottom-left" | "bottom-right"
-  | "left" | "right";
+/** ZStack alignment - where children align within the stack */
+export type ZStackAlignValue = "center" | "top-left" | "top" | "top-right" | "left" | "right" | "bottom-left" | "bottom" | "bottom-right";
 
 /** Image fit values */
 export type FitValue = "contain" | "cover" | "fill" | "none";
@@ -74,6 +72,9 @@ export interface ContainerStyleProps {
   width?: SizeValue;
   height?: SizeValue;
 
+  // Flex behavior (for VStack/HStack children)
+  grow?: GrowValue;
+
   // Background & Border
   bg?: ColorValue;
   border?: BorderValue;
@@ -87,10 +88,11 @@ export interface ContainerStyleProps {
   // Other
   overflow?: OverflowValue;
   opacity?: string; // "0" to "100"
+}
 
-  // Position (for ZStack children)
-  position?: PositionValue;
-  offset?: SpacingValue;
+/** ZStack-specific props */
+export interface ZStackStyleProps extends ContainerStyleProps {
+  align?: ZStackAlignValue;
 }
 
 /** Text style props */
@@ -104,8 +106,6 @@ export interface TextStyleProps {
 /** Image style props */
 export interface ImgStyleProps {
   fit?: FitValue;
-  position?: PositionValue;
-  offset?: SpacingValue;
   width?: SizeValue;
   height?: SizeValue;
   rounded?: RoundedValue;
@@ -135,7 +135,6 @@ export const SIZE_MAP: Record<string, string> = {
   "fit": "fit-content",
   "half": "50%",
   "full": "100%",
-  "screen": "100vh", // Note: width="screen" would use 100vw
 };
 
 /** Border radius to CSS */
@@ -369,13 +368,19 @@ export function resolveContainerStyles(props: Record<string, unknown>): React.CS
   // Size
   const width = str(props.width);
   if (width) {
-    // "screen" for width means 100vw
-    styles.width = width === "screen" ? "100vw" : (SIZE_MAP[width] ?? width);
+    styles.width = SIZE_MAP[width] ?? width;
   }
   const height = str(props.height);
   if (height) {
-    // "screen" for height means 100vh
-    styles.height = height === "screen" ? "100vh" : (SIZE_MAP[height] ?? height);
+    styles.height = SIZE_MAP[height] ?? height;
+  }
+
+  // Flex grow (for children of VStack/HStack)
+  const grow = str(props.grow);
+  if (grow === "1") {
+    styles.flexGrow = 1;
+    styles.flexShrink = 1;
+    styles.flexBasis = 0;
   }
 
   // Background
@@ -427,66 +432,31 @@ export function resolveContainerStyles(props: Record<string, unknown>): React.CS
 }
 
 /**
- * Resolve position props for ZStack children
+ * Resolve ZStack alignment to CSS grid alignment
+ * ZStack uses CSS Grid with all children in same cell, aligned by this value
  */
-export function resolvePositionStyles(props: Record<string, unknown>): React.CSSProperties {
-  const styles: React.CSSProperties = {};
-
-  const position = str(props.position);
-  if (!position) return styles;
-
-  styles.position = "absolute";
-  const offsetVal = str(props.offset);
-  const offset = offsetVal ? SPACING_MAP[offsetVal as SpacingValue] ?? "0" : "0";
-
-  switch (position) {
-    case "fill":
-      styles.inset = offset;
-      break;
-    case "center":
-      styles.top = "50%";
-      styles.left = "50%";
-      styles.transform = "translate(-50%, -50%)";
-      break;
-    case "top":
-      styles.top = offset;
-      styles.left = "50%";
-      styles.transform = "translateX(-50%)";
-      break;
+export function resolveZStackAlignment(align: string | undefined): { justifyItems: string; alignItems: string } {
+  switch (align) {
     case "top-left":
-      styles.top = offset;
-      styles.left = offset;
-      break;
+      return { justifyItems: "start", alignItems: "start" };
+    case "top":
+      return { justifyItems: "center", alignItems: "start" };
     case "top-right":
-      styles.top = offset;
-      styles.right = offset;
-      break;
-    case "bottom":
-      styles.bottom = offset;
-      styles.left = "50%";
-      styles.transform = "translateX(-50%)";
-      break;
-    case "bottom-left":
-      styles.bottom = offset;
-      styles.left = offset;
-      break;
-    case "bottom-right":
-      styles.bottom = offset;
-      styles.right = offset;
-      break;
+      return { justifyItems: "end", alignItems: "start" };
     case "left":
-      styles.left = offset;
-      styles.top = "50%";
-      styles.transform = "translateY(-50%)";
-      break;
+      return { justifyItems: "start", alignItems: "center" };
+    case "center":
+    default:
+      return { justifyItems: "center", alignItems: "center" };
     case "right":
-      styles.right = offset;
-      styles.top = "50%";
-      styles.transform = "translateY(-50%)";
-      break;
+      return { justifyItems: "end", alignItems: "center" };
+    case "bottom-left":
+      return { justifyItems: "start", alignItems: "end" };
+    case "bottom":
+      return { justifyItems: "center", alignItems: "end" };
+    case "bottom-right":
+      return { justifyItems: "end", alignItems: "end" };
   }
-
-  return styles;
 }
 
 /**
@@ -545,10 +515,6 @@ export function resolveImgStyles(props: Record<string, unknown>): React.CSSPrope
     }
   }
 
-  // Position styles for ZStack children
-  const posStyles = resolvePositionStyles(props);
-  Object.assign(styles, posStyles);
-
   return styles;
 }
 
@@ -581,7 +547,7 @@ export interface PropertyDefinition {
   type: "select" | "color" | "text";
   options?: string[];
   default?: string;
-  group: "layout" | "size" | "appearance" | "spacing" | "text" | "position";
+  group: "layout" | "size" | "appearance" | "spacing" | "text" | "alignment";
 }
 
 export const CONTAINER_PROPERTIES: PropertyDefinition[] = [
@@ -592,8 +558,9 @@ export const CONTAINER_PROPERTIES: PropertyDefinition[] = [
   { name: "overflow", type: "select", options: ["visible", "hidden", "scroll", "auto"], default: "visible", group: "layout" },
 
   // Size
-  { name: "width", type: "select", options: ["auto", "fit", "half", "full", "screen"], default: "auto", group: "size" },
-  { name: "height", type: "select", options: ["auto", "fit", "half", "full", "screen"], default: "auto", group: "size" },
+  { name: "width", type: "select", options: ["auto", "fit", "half", "full"], default: "auto", group: "size" },
+  { name: "height", type: "select", options: ["auto", "fit", "half", "full"], default: "auto", group: "size" },
+  { name: "grow", type: "select", options: ["0", "1"], default: "0", group: "size" },
 
   // Appearance
   { name: "bg", type: "color", default: "transparent", group: "appearance" },
@@ -606,14 +573,14 @@ export const CONTAINER_PROPERTIES: PropertyDefinition[] = [
   { name: "padding", type: "select", options: ["0", "1", "2", "3", "4", "6", "8", "12", "16"], default: "0", group: "spacing" },
 ];
 
+export const ZSTACK_PROPERTIES: PropertyDefinition[] = [
+  ...CONTAINER_PROPERTIES,
+  { name: "align", type: "select", options: ["center", "top-left", "top", "top-right", "left", "right", "bottom-left", "bottom", "bottom-right"], default: "center", group: "alignment" },
+];
+
 export const TEXT_PROPERTIES: PropertyDefinition[] = [
   { name: "size", type: "select", options: ["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4xl"], default: "base", group: "text" },
   { name: "weight", type: "select", options: ["thin", "light", "normal", "medium", "semibold", "bold", "black"], default: "normal", group: "text" },
   { name: "color", type: "color", default: "gray-900", group: "text" },
   { name: "align", type: "select", options: ["left", "center", "right"], default: "left", group: "text" },
-];
-
-export const POSITION_PROPERTIES: PropertyDefinition[] = [
-  { name: "position", type: "select", options: ["fill", "center", "top", "top-left", "top-right", "bottom", "bottom-left", "bottom-right", "left", "right"], group: "position" },
-  { name: "offset", type: "select", options: ["0", "1", "2", "3", "4", "6", "8", "12", "16"], default: "0", group: "position" },
 ];

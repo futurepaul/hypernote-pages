@@ -278,7 +278,7 @@ export function Editor() {
             onCursorChange={setCursorOffset}
           />
         </div>
-        <div className="flex-1 min-w-0 p-4 flex flex-col items-center gap-4 overflow-auto">
+        <div className="flex-1 min-w-0 p-4 flex flex-col items-center gap-4 overflow-hidden">
           <Preview ast={parsedAst} parseError={parseError} />
         </div>
         {showProperties && (

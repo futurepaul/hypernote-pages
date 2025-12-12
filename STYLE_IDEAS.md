@@ -1,12 +1,32 @@
 # Hypernote Styling System
 
-## V1 Spec: Enumerated Properties
+## V1 Spec: Enumerated Properties (SwiftUI-inspired)
 
 ### Design Principles
 - **No pixel units:** we don't control device size, use relative sizing
-- **No Box component:** VStack/HStack/ZStack handle all container styling
+- **No viewport units in content:** the rendering context provides constraints
 - **Cross-platform:** maps directly to SwiftUI/Flutter, not web-specific
 - **Figma-like editing:** all properties enumerable with defaults in properties panel
+- **Minimum necessary primitives:** one good way to do things, not a million options
+
+---
+
+## Rendering Contexts
+
+Hypernotes are consumed in two main ways:
+
+### Feed Mode (default)
+- Instagram/social media scroll style
+- Constrained viewport: min 50vh, max 80vh
+- Content uses `height="full"` to fill available space
+- Scrolling happens within the constrained preview
+
+### Full Page Mode
+- Browser-like, full viewport
+- 100vh x 100vw available
+- Content uses `height="full"` to fill the viewport
+
+**Key insight:** Content doesn't specify viewport size - it uses relative sizing (`full`, `half`, `auto`) and the rendering context provides the constraints.
 
 ---
 
@@ -37,71 +57,56 @@ bg: "gray-900"      # color, image URL, or video URL - renderer figures it out
   rounded="lg"      # border radius: none|sm|md|lg|xl|full
   border="1"        # border width
   borderColor="gray-300"
-  width="full"      # full|half|auto|fit or percentage "50%"
-  height="auto"     # full|half|auto|fit or percentage
+  width="full"      # full|half|auto|fit
+  height="auto"     # full|half|auto|fit
+  grow="1"          # flex grow: 0|1 (for children of VStack/HStack)
   justify="start"   # start|center|end|between|around
   items="stretch"   # start|center|end|stretch
-  overflow="visible" # visible|hidden|scroll
+  overflow="visible" # visible|hidden|scroll|auto
 >
 ```
 
 ### HStack - Horizontal stack
 Same props as VStack, just flows horizontally.
 
-### ZStack - Layered/absolute positioning
+### ZStack - SwiftUI-style layered stack
+
+All children are stacked on top of each other. The ZStack sizes to fit the largest child. Uses CSS Grid internally with all children in the same cell.
+
 ```mdx
 <ZStack
-  gap="0"           # usually 0 for overlapping
+  align="center"    # where children align: center|top-left|top|top-right|left|right|bottom-left|bottom|bottom-right
   padding="4"
   bg="transparent"
   width="full"
   height="full"
-  # ... same container props as VStack/HStack
+  # ... same container props as VStack/HStack (except gap, which doesn't apply)
 >
-  {/* Children stack on top of each other */}
-  {/* First child is bottom layer, last is top */}
-</ZStack>
-```
-
-**ZStack children can use position props:**
-```mdx
-<ZStack>
-  <Img src="bg.jpg" position="fill" fit="cover" />
-  <VStack position="top-left" offset="4">
-    <Text>Top left corner</Text>
-  </VStack>
-  <VStack position="center">
-    <Text size="2xl" weight="bold">Centered!</Text>
-  </VStack>
-  <HStack position="bottom" offset="4">
-    <Text>Bottom center with offset</Text>
-  </HStack>
+  <Img src="bg.jpg" width="full" height="full" fit="cover" />
+  <Text size="2xl" weight="bold">Centered on top!</Text>
 </ZStack>
 ```
 
 ---
 
-## Position System (for ZStack children)
+## Flex Growth (for VStack/HStack children)
 
+Use `grow="1"` to make a child expand to fill available space:
+
+```mdx
+<VStack height="full">
+  <Text>Header (shrinks to fit)</Text>
+
+  <VStack grow="1" overflow="scroll">
+    {/* This section expands to fill remaining space */}
+    {/* and scrolls if content overflows */}
+  </VStack>
+
+  <HStack>Footer (shrinks to fit)</HStack>
+</VStack>
 ```
-position: fill | center |
-          top-left | top | top-right |
-          left | right |
-          bottom-left | bottom | bottom-right
 
-offset: spacing value applied as inset from edges
-```
-
-| Position | Behavior |
-|----------|----------|
-| `fill` | Stretch to fill parent (default for first child often) |
-| `center` | Centered both horizontally and vertically |
-| `top` | Top edge, horizontally centered |
-| `top-left` | Top-left corner |
-| `bottom-right` | Bottom-right corner |
-| etc. | ... |
-
-`offset` adds padding from the anchored edge(s).
+This is how SwiftUI's `Spacer()` and Flutter's `Expanded()` work.
 
 ---
 
@@ -125,7 +130,6 @@ offset: spacing value applied as inset from edges
   src="..."
   alt="..."
   fit="contain"     # contain|cover|fill|none
-  position="fill"   # when inside ZStack
   width="full"      # sizing
   height="auto"
   rounded="lg"      # can have rounded corners
@@ -159,10 +163,10 @@ All spacing values map to a scale. Renderers convert to appropriate units.
 |-------|---------|
 | `full` | 100% of parent |
 | `half` | 50% of parent |
-| `screen` | 100vh (height) or 100vw (width) - viewport size |
 | `auto` | Automatic based on content/flex |
 | `fit` | Shrink to fit content exactly |
-| `"50%"` | Explicit percentage |
+
+**Note:** No `screen` value - content uses parent-relative sizing. The rendering context (feed vs fullpage) provides the viewport constraints.
 
 ---
 
@@ -187,28 +191,52 @@ Special: white, black, transparent
 
 ---
 
-## Complete Example
+## Complete Example: Chat Layout
 
 ```yaml
 ---
-title: My Blog Post
-bg: "gray-50"
+title: Chat Room
+bg: "gray-900"
 ---
 ```
 
 ```mdx
-<VStack padding="6" gap="4" width="full" items="center">
-  <Text size="3xl" weight="bold" color="gray-900">
-    Hello World
-  </Text>
-  <Text size="base" color="gray-600">
-    This is a flexible page that works on any screen size.
-  </Text>
-  <HStack gap="2">
-    <Button action="like">Like</Button>
-    <Button action="share">Share</Button>
+<VStack height="full" gap="0">
+  {/* Header */}
+  <HStack padding="4" bg="gray-800" items="center">
+    <Text size="lg" weight="bold" color="white">Chat Room</Text>
+  </HStack>
+
+  {/* Messages - grows to fill, scrolls */}
+  <VStack grow="1" overflow="scroll" padding="4" gap="2">
+    <Each from={queries.messages} as="msg">
+      <VStack bg="gray-800" rounded="lg" padding="3">
+        <Profile pubkey={msg.pubkey} />
+        <Text color="white">{msg.content}</Text>
+      </VStack>
+    </Each>
+  </VStack>
+
+  {/* Input footer */}
+  <HStack padding="4" bg="gray-800" gap="2">
+    <Input name="message" placeholder="Type a message..." />
+    <Button action="send">Send</Button>
   </HStack>
 </VStack>
+```
+
+---
+
+## Complete Example: Image with Overlay Text
+
+```mdx
+<ZStack width="full" height="full">
+  <Img src="hero.jpg" width="full" height="full" fit="cover" />
+  <VStack padding="8">
+    <Text size="4xl" weight="bold" color="white">Welcome</Text>
+    <Text size="lg" color="white/80">Your journey starts here</Text>
+  </VStack>
+</ZStack>
 ```
 
 ---
@@ -220,14 +248,15 @@ Since all properties are enumerated, the properties panel can show:
 **For a selected VStack:**
 ```
 Layout
-  |- direction: vertical (readonly for VStack)
   |- gap: [dropdown: 0,1,2,3,4,6,8,12,16]
   |- justify: [dropdown: start,center,end,between,around]
-  +- items: [dropdown: start,center,end,stretch]
+  |- items: [dropdown: start,center,end,stretch]
+  +- overflow: [dropdown: visible,hidden,scroll,auto]
 
 Size
-  |- width: [dropdown: auto,fit,half,full] or [text input for %]
-  +- height: [dropdown: auto,fit,half,full]
+  |- width: [dropdown: auto,fit,half,full]
+  |- height: [dropdown: auto,fit,half,full]
+  +- grow: [dropdown: 0,1]
 
 Appearance
   |- bg: [color picker]
@@ -236,21 +265,16 @@ Appearance
   +- borderColor: [color picker]
 
 Spacing
-  |- padding: [4-way input or single]
-  +- margin: [4-way input or single]
+  +- padding: [dropdown: 0,1,2,3,4,6,8,12,16]
+```
+
+**For ZStack, adds:**
+```
+Alignment
+  +- align: [dropdown: center,top-left,top,top-right,left,right,bottom-left,bottom,bottom-right]
 ```
 
 Unset properties show defaults in gray. Changed properties show in black/bold.
-
----
-
-## Open Questions
-
-1. **maxWidth for readable text:** Should there be a `maxWidth` prop, or is that too web-specific? Could use `width="readable"` as a semantic value?
-
-2. **Gradients:** Worth supporting? Syntax could be `bg="linear(blue-500, purple-500)"` or defer.
-
-3. **Shadows:** Skip for now? Or simple `shadow="sm|md|lg"`?
 
 ---
 
@@ -261,4 +285,5 @@ Unset properties show defaults in gray. Changed properties show in black/bold.
 - Custom colors (define in frontmatter theme)
 - Blur/backdrop effects
 - Masks and clipping
-- Aspect ratio constraints (need better approach - maybe editor guidelines instead of frontmatter)
+- Gradients: `bg="linear(blue-500, purple-500)"`
+- Shadows: `shadow="sm|md|lg"`

@@ -10,10 +10,11 @@ import { parsePubkey, parseEventId } from "@/lib/nip19";
 import { useScope } from "@/hooks/usePageContext";
 import {
   type ContainerStyleProps,
+  type ZStackStyleProps,
   type TextStyleProps,
   type ImgStyleProps,
   resolveContainerStyles,
-  resolvePositionStyles,
+  resolveZStackAlignment,
   resolveTextStyles,
   resolveImgStyles,
 } from "@/lib/styles";
@@ -26,10 +27,13 @@ interface StackProps extends ContainerStyleProps {
   children?: ReactNode;
 }
 
+interface ZStackProps extends ZStackStyleProps {
+  children?: ReactNode;
+}
+
 export function HStack(props: StackProps) {
-  const { children, position, offset, ...styleProps } = props;
+  const { children, ...styleProps } = props;
   const containerStyles = resolveContainerStyles(styleProps);
-  const positionStyles = resolvePositionStyles({ position, offset });
 
   return (
     <div
@@ -37,7 +41,6 @@ export function HStack(props: StackProps) {
         display: "flex",
         flexDirection: "row",
         ...containerStyles,
-        ...positionStyles,
       }}
     >
       {children}
@@ -46,9 +49,8 @@ export function HStack(props: StackProps) {
 }
 
 export function VStack(props: StackProps) {
-  const { children, position, offset, ...styleProps } = props;
+  const { children, ...styleProps } = props;
   const containerStyles = resolveContainerStyles(styleProps);
-  const positionStyles = resolvePositionStyles({ position, offset });
 
   return (
     <div
@@ -56,7 +58,6 @@ export function VStack(props: StackProps) {
         display: "flex",
         flexDirection: "column",
         ...containerStyles,
-        ...positionStyles,
       }}
     >
       {children}
@@ -64,21 +65,37 @@ export function VStack(props: StackProps) {
   );
 }
 
-export function ZStack(props: StackProps) {
-  const { children, position, offset, ...styleProps } = props;
+/**
+ * ZStack - SwiftUI-style layered stack
+ * All children are stacked on top of each other in a CSS Grid.
+ * The stack sizes to fit the largest child.
+ * Children are aligned according to the `align` prop (default: center).
+ */
+export function ZStack(props: ZStackProps) {
+  const { children, align, ...styleProps } = props;
   const containerStyles = resolveContainerStyles(styleProps);
-  const positionStyles = resolvePositionStyles({ position, offset });
+  const alignment = resolveZStackAlignment(align);
 
   return (
     <div
       style={{
-        position: positionStyles.position ?? "relative",
-        display: "flex",
+        display: "grid",
+        // All children go in the same grid cell (1/1)
+        gridTemplateColumns: "1fr",
+        gridTemplateRows: "1fr",
+        ...alignment,
         ...containerStyles,
-        ...positionStyles,
       }}
     >
-      {children}
+      {/* Wrap each child to place in same grid cell */}
+      {Array.isArray(children)
+        ? children.map((child, i) => (
+            <div key={i} style={{ gridArea: "1 / 1" }}>
+              {child}
+            </div>
+          ))
+        : <div style={{ gridArea: "1 / 1" }}>{children}</div>
+      }
     </div>
   );
 }

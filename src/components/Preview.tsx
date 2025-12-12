@@ -5,7 +5,15 @@ import { NodeRenderer } from "@/components/NodeRenderer";
 import { usePageContext, ScopeProvider } from "@/hooks/usePageContext";
 import { parseColor, detectBgType } from "@/lib/styles";
 
-export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; parseError?: string | null }) {
+interface PreviewProps {
+  ast: AST;
+  naddr?: string;
+  parseError?: string | null;
+  /** "feed" constrains to 50vh-100vh (Instagram-style), "fullpage" gives full viewport */
+  mode?: "feed" | "fullpage";
+}
+
+export function Preview({ ast, naddr, parseError, mode = "feed" }: PreviewProps) {
   // Parse frontmatter from AST
   const frontmatter = useMemo(() => {
     const fmNode = ast.children.find((child) => child.type === "frontmatter");
@@ -25,12 +33,27 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
   // One hook for everything - returns unified scope
   const scope = usePageContext(frontmatter);
 
-  // Resolve canvas styles
+  // Resolve canvas styles based on mode
   const canvasStyles = useMemo(() => {
     const styles: React.CSSProperties = {
       position: "relative",
       width: "100%",
+      // Flex container so children can use grow="1" and overflow="scroll"
+      display: "flex",
+      flexDirection: "column",
     };
+
+    // Mode-specific height constraints
+    if (mode === "feed") {
+      // Instagram-style: fixed height container, children handle their own scrolling
+      styles.height = "70vh";
+      styles.overflow = "hidden"; // Don't scroll at this level - children scroll
+    } else {
+      // Full page: take full viewport
+      styles.height = "100vh";
+      styles.width = "100vw";
+      styles.overflow = "hidden"; // Don't scroll at this level - children scroll
+    }
 
     // Background color
     if (bg) {
@@ -45,7 +68,7 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
     }
 
     return styles;
-  }, [bg]);
+  }, [bg, mode]);
 
   const bgType = bg ? detectBgType(bg) : null;
 
@@ -63,7 +86,7 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
       {parseError && <div className="text-red-500 p-2">{parseError}</div>}
 
       {/* Canvas wrapper with background */}
-      <div style={canvasStyles} className="overflow-y-auto">
+      <div style={canvasStyles}>
         {/* Background image */}
         {bgType === "image" && bg && (
           <img
@@ -99,12 +122,15 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
           />
         )}
 
-        {/* Content layer */}
+        {/* Content layer - flex child that fills available space */}
         <div
           style={{
             position: "relative",
             zIndex: 1,
-            padding: "1rem",
+            display: "flex",
+            flexDirection: "column",
+            flexGrow: 1,
+            minHeight: 0, // Critical: allows flex child to shrink below content size
           }}
           className="wrap-break-words"
         >
