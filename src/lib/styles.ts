@@ -13,7 +13,7 @@
 export type SpacingValue = "0" | "1" | "2" | "3" | "4" | "6" | "8" | "12" | "16";
 
 /** Size values for width/height */
-export type SizeValue = "auto" | "fit" | "half" | "full" | `${number}%`;
+export type SizeValue = "auto" | "fit" | "half" | "full" | "screen" | `${number}%`;
 
 /** Border radius values */
 export type RoundedValue = "none" | "sm" | "md" | "lg" | "xl" | "2xl" | "full";
@@ -135,6 +135,7 @@ export const SIZE_MAP: Record<string, string> = {
   "fit": "fit-content",
   "half": "50%",
   "full": "100%",
+  "screen": "100vh", // Note: width="screen" would use 100vw
 };
 
 /** Border radius to CSS */
@@ -368,11 +369,13 @@ export function resolveContainerStyles(props: Record<string, unknown>): React.CS
   // Size
   const width = str(props.width);
   if (width) {
-    styles.width = SIZE_MAP[width] ?? width;
+    // "screen" for width means 100vw
+    styles.width = width === "screen" ? "100vw" : (SIZE_MAP[width] ?? width);
   }
   const height = str(props.height);
   if (height) {
-    styles.height = SIZE_MAP[height] ?? height;
+    // "screen" for height means 100vh
+    styles.height = height === "screen" ? "100vh" : (SIZE_MAP[height] ?? height);
   }
 
   // Background
@@ -589,8 +592,8 @@ export const CONTAINER_PROPERTIES: PropertyDefinition[] = [
   { name: "overflow", type: "select", options: ["visible", "hidden", "scroll", "auto"], default: "visible", group: "layout" },
 
   // Size
-  { name: "width", type: "select", options: ["auto", "fit", "half", "full"], default: "auto", group: "size" },
-  { name: "height", type: "select", options: ["auto", "fit", "half", "full"], default: "auto", group: "size" },
+  { name: "width", type: "select", options: ["auto", "fit", "half", "full", "screen"], default: "auto", group: "size" },
+  { name: "height", type: "select", options: ["auto", "fit", "half", "full", "screen"], default: "auto", group: "size" },
 
   // Appearance
   { name: "bg", type: "color", default: "transparent", group: "appearance" },

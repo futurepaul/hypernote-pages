@@ -159,6 +159,7 @@ All spacing values map to a scale. Renderers convert to appropriate units.
 |-------|---------|
 | `full` | 100% of parent |
 | `half` | 50% of parent |
+| `screen` | 100vh (height) or 100vw (width) - viewport size |
 | `auto` | Automatic based on content/flex |
 | `fit` | Shrink to fit content exactly |
 | `"50%"` | Explicit percentage |
