@@ -3,35 +3,26 @@
 ## V1 Spec: Enumerated Properties
 
 ### Design Principles
-- **Two primary use cases:** flexible web pages and fixed-aspect "stories"
 - **No pixel units:** we don't control device size, use relative sizing
-- **Frame is implicit:** defined in frontmatter, not a component
 - **No Box component:** VStack/HStack/ZStack handle all container styling
 - **Cross-platform:** maps directly to SwiftUI/Flutter, not web-specific
 - **Figma-like editing:** all properties enumerable with defaults in properties panel
 
 ---
 
-## Frontmatter: Page Canvas
+## Frontmatter: Page Background
 
 ```yaml
 ---
 title: My Page
-
-# Canvas settings
-canvas:
-  aspect: flexible    # flexible | portrait (9:16) | landscape (16:9) | square (1:1)
-  bg: "gray-900"      # color, image URL, or video URL - renderer figures it out
+bg: "gray-900"      # color, image URL, or video URL - renderer figures it out
 
 # Examples:
 # bg: "blue-500"                    # solid color
 # bg: "https://example.com/bg.jpg"  # image (stretched/covered)
 # bg: "https://example.com/bg.mp4"  # video (looped, muted)
-# bg: "linear(blue-500, purple-500)" # gradient (future?)
 ---
 ```
-
-The canvas is the implicit root frame. All content renders inside it.
 
 ---
 
@@ -122,8 +113,6 @@ offset: spacing value applied as inset from edges
   weight="normal"   # thin|light|normal|medium|semibold|bold|black
   color="white"     # color name
   align="left"      # left|center|right
-  decoration="none" # none|underline|line-through
-  transform="none"  # none|uppercase|lowercase|capitalize
 >
 ```
 
@@ -197,79 +186,28 @@ Special: white, black, transparent
 
 ---
 
-## Complete Example: Flexible Web Page
+## Complete Example
 
 ```yaml
 ---
 title: My Blog Post
-canvas:
-  aspect: flexible
-  bg: "gray-50"
+bg: "gray-50"
 ---
 ```
 
 ```mdx
 <VStack padding="6" gap="4" width="full" items="center">
-  <VStack width="full" maxWidth="640px" gap="6">
-    <Text size="3xl" weight="bold" color="gray-900">
-      Hello World
-    </Text>
-    <Text size="base" color="gray-600">
-      This is a flexible page that works on any screen size.
-    </Text>
-    <HStack gap="2">
-      <Button action="like">Like</Button>
-      <Button action="share">Share</Button>
-    </HStack>
-  </VStack>
-</VStack>
-```
-
----
-
-## Complete Example: Instagram Story
-
-```yaml
----
-title: My Story
-canvas:
-  aspect: portrait
-  bg: "https://example.com/sunset.mp4"
----
-```
-
-```mdx
-<ZStack width="full" height="full">
-  {/* Background is handled by canvas.bg */}
-
-  {/* Top bar */}
-  <HStack position="top" offset="4" gap="2" items="center">
-    <Profile pubkey="npub1..." />
-    <Text size="sm" color="white/80">2h ago</Text>
+  <Text size="3xl" weight="bold" color="gray-900">
+    Hello World
+  </Text>
+  <Text size="base" color="gray-600">
+    This is a flexible page that works on any screen size.
+  </Text>
+  <HStack gap="2">
+    <Button action="like">Like</Button>
+    <Button action="share">Share</Button>
   </HStack>
-
-  {/* Centered content */}
-  <VStack position="center" gap="4" items="center">
-    <Text size="4xl" weight="bold" color="white">
-      🎉
-    </Text>
-    <Text size="xl" color="white" align="center">
-      Tap to vote!
-    </Text>
-  </VStack>
-
-  {/* Bottom poll */}
-  <VStack position="bottom" offset="8" gap="2" width="full" padding="4">
-    <HStack gap="2" width="full">
-      <VStack bg="white/20" rounded="lg" padding="4" width="half">
-        <Text color="white" align="center">Option A</Text>
-      </VStack>
-      <VStack bg="white/20" rounded="lg" padding="4" width="half">
-        <Text color="white" align="center">Option B</Text>
-      </VStack>
-    </HStack>
-  </VStack>
-</ZStack>
+</VStack>
 ```
 
 ---
@@ -281,40 +219,27 @@ Since all properties are enumerated, the properties panel can show:
 **For a selected VStack:**
 ```
 Layout
-  ├─ direction: vertical (readonly for VStack)
-  ├─ gap: [dropdown: 0,1,2,3,4,6,8,12,16]
-  ├─ justify: [dropdown: start,center,end,between,around]
-  └─ items: [dropdown: start,center,end,stretch]
+  |- direction: vertical (readonly for VStack)
+  |- gap: [dropdown: 0,1,2,3,4,6,8,12,16]
+  |- justify: [dropdown: start,center,end,between,around]
+  +- items: [dropdown: start,center,end,stretch]
 
 Size
-  ├─ width: [dropdown: auto,fit,half,full] or [text input for %]
-  └─ height: [dropdown: auto,fit,half,full]
+  |- width: [dropdown: auto,fit,half,full] or [text input for %]
+  +- height: [dropdown: auto,fit,half,full]
 
 Appearance
-  ├─ bg: [color picker]
-  ├─ rounded: [dropdown: none,sm,md,lg,xl,full]
-  ├─ border: [dropdown: 0,1,2,4]
-  └─ borderColor: [color picker]
+  |- bg: [color picker]
+  |- rounded: [dropdown: none,sm,md,lg,xl,full]
+  |- border: [dropdown: 0,1,2,4]
+  +- borderColor: [color picker]
 
 Spacing
-  ├─ padding: [4-way input or single]
-  └─ margin: [4-way input or single]
+  |- padding: [4-way input or single]
+  +- margin: [4-way input or single]
 ```
 
 Unset properties show defaults in gray. Changed properties show in black/bold.
-
----
-
-## Implementation Plan
-
-1. **Define TypeScript types** for all style properties
-2. **Add ZStack** to builtins
-3. **Update VStack/HStack** to accept style props
-4. **Create style resolver** that merges defaults + props
-5. **Update NodeRenderer** to apply resolved styles
-6. **Update PropertiesPanel** to show/edit all properties
-7. **Add canvas frontmatter parsing** to Preview
-8. **Handle bg as color/image/video** in canvas renderer
 
 ---
 
@@ -322,11 +247,9 @@ Unset properties show defaults in gray. Changed properties show in black/bold.
 
 1. **maxWidth for readable text:** Should there be a `maxWidth` prop, or is that too web-specific? Could use `width="readable"` as a semantic value?
 
-2. **Gradients:** Worth supporting in v1? Syntax could be `bg="linear(blue-500, purple-500)"` or defer.
+2. **Gradients:** Worth supporting? Syntax could be `bg="linear(blue-500, purple-500)"` or defer.
 
-3. **Shadows:** Skip for v1? Or simple `shadow="sm|md|lg"`?
-
-4. **Aspect ratio on components:** Should VStack/HStack/ZStack support `aspect` prop, or only at canvas level?
+3. **Shadows:** Skip for now? Or simple `shadow="sm|md|lg"`?
 
 ---
 
@@ -337,4 +260,4 @@ Unset properties show defaults in gray. Changed properties show in black/bold.
 - Custom colors (define in frontmatter theme)
 - Blur/backdrop effects
 - Masks and clipping
-
+- Aspect ratio constraints (need better approach - maybe editor guidelines instead of frontmatter)

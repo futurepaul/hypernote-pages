@@ -50,9 +50,6 @@ export type WeightValue = "thin" | "light" | "normal" | "medium" | "semibold" | 
 /** Text alignment */
 export type TextAlignValue = "left" | "center" | "right";
 
-/** Canvas aspect ratio */
-export type AspectValue = "flexible" | "portrait" | "landscape" | "square";
-
 /** Color with optional opacity: "blue-500" or "blue-500/50" */
 export type ColorValue = string;
 
@@ -113,12 +110,6 @@ export interface ImgStyleProps {
   height?: SizeValue;
   rounded?: RoundedValue;
   opacity?: string;
-}
-
-/** Canvas frontmatter config */
-export interface CanvasConfig {
-  aspect?: AspectValue;
-  bg?: string; // color, image URL, or video URL
 }
 
 // =============================================================================
@@ -213,14 +204,6 @@ export const FIT_MAP: Record<FitValue, string> = {
   "cover": "cover",
   "fill": "fill",
   "none": "none",
-};
-
-/** Aspect ratios */
-export const ASPECT_MAP: Record<AspectValue, string | null> = {
-  "flexible": null,
-  "portrait": "9 / 16",
-  "landscape": "16 / 9",
-  "square": "1 / 1",
 };
 
 // =============================================================================

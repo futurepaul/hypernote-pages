@@ -3,12 +3,7 @@ import yaml from "yaml";
 import { useMemo } from "react";
 import { NodeRenderer } from "@/components/NodeRenderer";
 import { usePageContext, ScopeProvider } from "@/hooks/usePageContext";
-import {
-  type CanvasConfig,
-  parseColor,
-  detectBgType,
-  ASPECT_MAP,
-} from "@/lib/styles";
+import { parseColor, detectBgType } from "@/lib/styles";
 
 export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; parseError?: string | null }) {
   // Parse frontmatter from AST
@@ -24,11 +19,8 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
     return null;
   }, [ast]);
 
-  // Extract canvas config - support both `canvas: { aspect, bg }` and root-level `aspect`, `bg`
-  const canvas: CanvasConfig = {
-    aspect: frontmatter?.canvas?.aspect ?? frontmatter?.aspect,
-    bg: frontmatter?.canvas?.bg ?? frontmatter?.bg,
-  };
+  // Extract bg from frontmatter (support both canvas.bg and root-level bg)
+  const bg: string | undefined = frontmatter?.canvas?.bg ?? frontmatter?.bg;
 
   // One hook for everything - returns unified scope
   const scope = usePageContext(frontmatter);
@@ -38,22 +30,13 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
     const styles: React.CSSProperties = {
       position: "relative",
       width: "100%",
-      overflow: "hidden",
     };
 
-    // Aspect ratio
-    if (canvas.aspect && canvas.aspect !== "flexible") {
-      const aspectValue = ASPECT_MAP[canvas.aspect];
-      if (aspectValue) {
-        styles.aspectRatio = aspectValue;
-      }
-    }
-
-    // Background
-    if (canvas.bg) {
-      const bgType = detectBgType(canvas.bg);
+    // Background color
+    if (bg) {
+      const bgType = detectBgType(bg);
       if (bgType === "color") {
-        const color = parseColor(canvas.bg);
+        const color = parseColor(bg);
         if (color) {
           styles.backgroundColor = color;
         }
@@ -62,17 +45,13 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
     }
 
     return styles;
-  }, [canvas]);
+  }, [bg]);
 
-  const bgType = canvas.bg ? detectBgType(canvas.bg) : null;
-
-  const isFixedAspect = canvas.aspect && canvas.aspect !== "flexible";
+  const bgType = bg ? detectBgType(bg) : null;
 
   return (
-    <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden flex flex-col"
-      style={{ maxWidth: isFixedAspect ? "400px" : "100%" }}
-    >
-      <div className="p-2 border-b border-neutral-300 shrink-0">
+    <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden max-w-full">
+      <div className="p-2 border-b border-neutral-300">
         <h2 className="font-bold text-center">{frontmatter?.title || "Untitled"}</h2>
         {naddr && (
           <div className="text-sm text-neutral-500">
@@ -83,15 +62,12 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
 
       {parseError && <div className="text-red-500 p-2">{parseError}</div>}
 
-      {/* Canvas wrapper with aspect ratio and background */}
-      <div
-        style={canvasStyles}
-        className={isFixedAspect ? "" : "overflow-y-auto"}
-      >
+      {/* Canvas wrapper with background */}
+      <div style={canvasStyles} className="overflow-y-auto">
         {/* Background image */}
-        {bgType === "image" && canvas.bg && (
+        {bgType === "image" && bg && (
           <img
-            src={canvas.bg}
+            src={bg}
             alt=""
             style={{
               position: "absolute",
@@ -105,9 +81,9 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
         )}
 
         {/* Background video */}
-        {bgType === "video" && canvas.bg && (
+        {bgType === "video" && bg && (
           <video
-            src={canvas.bg}
+            src={bg}
             autoPlay
             loop
             muted
@@ -126,13 +102,9 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
         {/* Content layer */}
         <div
           style={{
-            position: isFixedAspect ? "absolute" : "relative",
-            inset: isFixedAspect ? 0 : undefined,
+            position: "relative",
             zIndex: 1,
             padding: "1rem",
-            display: "flex",
-            flexDirection: "column",
-            overflow: isFixedAspect ? "hidden" : undefined,
           }}
           className="wrap-break-words"
         >
@@ -147,7 +119,7 @@ export function Preview({ ast, naddr, parseError }: { ast: AST; naddr?: string; 
         </div>
       </div>
 
-      <div className="p-2 border-t border-neutral-300 max-h-64 overflow-y-auto shrink-0">
+      <div className="p-2 border-t border-neutral-300 max-h-64 overflow-y-auto">
         <pre className="text-xs bg-neutral-900 text-neutral-200 p-4 rounded-sm whitespace-pre-wrap break-all">
           {JSON.stringify(ast, null, 2)}
         </pre>
