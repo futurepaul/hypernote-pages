@@ -3,7 +3,7 @@ import yaml from "yaml";
 import { useMemo } from "react";
 import { NodeRenderer } from "@/components/NodeRenderer";
 import { usePageContext, ScopeProvider } from "@/hooks/usePageContext";
-import { parseColor, detectBgType } from "@/lib/styles";
+import { parseColor, detectBgType, SPACING_MAP, type SpacingValue } from "@/lib/styles";
 
 interface PreviewProps {
   ast: AST;
@@ -29,8 +29,11 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
     return null;
   }, [ast]);
 
-  // Extract bg from frontmatter (support both canvas.bg and root-level bg)
+  // Extract bg, bgMode, color, and padding from frontmatter (support both canvas.x and root-level)
   const bg: string | undefined = frontmatter?.canvas?.bg ?? frontmatter?.bg;
+  const bgMode: "cover" | "tile" | "contain" = frontmatter?.canvas?.bgMode ?? frontmatter?.bgMode ?? "cover";
+  const color: string | undefined = frontmatter?.canvas?.color ?? frontmatter?.color;
+  const padding: string | undefined = frontmatter?.canvas?.padding ?? frontmatter?.padding;
 
   // One hook for everything - returns unified scope
   const scope = usePageContext(frontmatter);
@@ -57,20 +60,48 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
       styles.overflow = "hidden"; // Don't scroll at this level - children scroll
     }
 
-    // Background color
+    // Background
     if (bg) {
       const bgType = detectBgType(bg);
       if (bgType === "color") {
-        const color = parseColor(bg);
-        if (color) {
-          styles.backgroundColor = color;
+        const bgColor = parseColor(bg);
+        if (bgColor) {
+          styles.backgroundColor = bgColor;
+        }
+      } else if (bgType === "image") {
+        styles.backgroundImage = `url(${bg})`;
+        if (bgMode === "tile") {
+          styles.backgroundRepeat = "repeat";
+          styles.backgroundSize = "auto";
+        } else if (bgMode === "contain") {
+          styles.backgroundSize = "contain";
+          styles.backgroundPosition = "center";
+          styles.backgroundRepeat = "no-repeat";
+        } else {
+          // cover (default)
+          styles.backgroundSize = "cover";
+          styles.backgroundPosition = "center";
+          styles.backgroundRepeat = "no-repeat";
         }
       }
-      // Image and video backgrounds are handled in JSX below
+      // Video backgrounds are still handled in JSX below
+    }
+
+    // Text color
+    if (color) {
+      const textColor = parseColor(color);
+      if (textColor) {
+        styles.color = textColor;
+      }
+    }
+
+    // Padding
+    if (padding) {
+      styles.padding = SPACING_MAP[padding as SpacingValue] ?? padding;
     }
 
     return styles;
-  }, [bg, mode]);
+  }, [bg, bgMode, color, padding, mode]);
 
   const bgType = bg ? detectBgType(bg) : null;
 
@@ -91,23 +122,7 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
 
       {/* Canvas wrapper with background */}
       <div style={canvasStyles}>
-        {/* Background image */}
-        {bgType === "image" && bg && (
-          <img
-            src={bg}
-            alt=""
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              zIndex: 0,
-            }}
-          />
-        )}
-
-        {/* Background video */}
+        {/* Background video (images now handled via CSS background) */}
         {bgType === "video" && bg && (
           <video
             src={bg}

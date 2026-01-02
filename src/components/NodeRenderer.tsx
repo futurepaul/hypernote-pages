@@ -11,6 +11,18 @@ import type {
 } from "node_modules/zig-mdx/dist/types";
 import { builtinComponents } from "@/lib/builtins";
 
+function resolveLink(url: string): string {
+  if (url.startsWith("nostr:")) {
+    // nostr:npub1... -> njump.me/npub1...
+    return `https://njump.me/${url.slice(6)}`;
+  }
+  if (url.startsWith("hn:")) {
+    // hn:naddr1... -> /hn/naddr1...
+    return `/hn/${url.slice(3)}`;
+  }
+  return url;
+}
+
 function renderChildren(
   children: MDXNode[],
   key: string,
@@ -42,37 +54,37 @@ export function NodeRenderer({
     case "heading":
       if (node.level === 1) {
         return (
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl font-bold mb-4">
             {renderChildren(node.children, key, scope)}
           </h1>
         );
       } else if (node.level === 2) {
         return (
-          <h2 className="text-xl font-bold">
+          <h2 className="text-xl font-bold mb-4">
             {renderChildren(node.children, key, scope)}
           </h2>
         );
       } else if (node.level === 3) {
         return (
-          <h3 className="text-lg font-bold">
+          <h3 className="text-lg font-bold mb-4">
             {renderChildren(node.children, key, scope)}
           </h3>
         );
       } else if (node.level === 4) {
         return (
-          <h4 className="text-base font-bold">
+          <h4 className="text-base font-bold mb-4">
             {renderChildren(node.children, key, scope)}
           </h4>
         );
       } else if (node.level === 5) {
         return (
-          <h5 className="text-sm font-bold">
+          <h5 className="text-sm font-bold mb-4">
             {renderChildren(node.children, key, scope)}
           </h5>
         );
       } else if (node.level === 6) {
         return (
-          <h6 className="text-xs font-bold">
+          <h6 className="text-xs font-bold mb-4">
             {renderChildren(node.children, key, scope)}
           </h6>
         );
@@ -80,21 +92,21 @@ export function NodeRenderer({
       return <div>Unknown heading level: {node.level}</div>;
 
     case "hard_break":
-      return <br />;
+      return <br className="mb-4" />;
 
     case "paragraph":
-      return <p>{renderChildren(node.children, key, scope)}</p>;
+      return <p className="mb-4">{renderChildren(node.children, key, scope)}</p>;
     case "text":
       return <span>{node.value}</span>;
     case "list_ordered":
       return (
-        <ol className="list-decimal">
+        <ol className="list-decimal mb-4">
           {renderChildren(node.children, key, scope)}
         </ol>
       );
     case "list_unordered":
       return (
-        <ul className="list-disc">
+        <ul className="list-disc mb-4">
           {renderChildren(node.children, key, scope)}
         </ul>
       );
@@ -103,7 +115,7 @@ export function NodeRenderer({
         <li className="ml-4">{renderChildren(node.children, key, scope)}</li>
       );
     case "link":
-      return <a href={node.url}>{renderChildren(node.children, key, scope)}</a>;
+      return <a href={resolveLink(node.url)}>{renderChildren(node.children, key, scope)}</a>;
 
     case "image":
       const altText = node.children
@@ -124,7 +136,7 @@ export function NodeRenderer({
         </pre>
       );
     case "hr":
-      return <hr />;
+      return <hr className="mb-4" />;
     case "blockquote":
       return (
         <blockquote className="border-l border-neutral-500 pl-2">

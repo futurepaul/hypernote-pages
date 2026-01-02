@@ -14,5 +14,13 @@
   :root {
     @apply text-white bg-neutral-800 font-sans;
   }
+
+  a {
+    @apply text-blue-500 underline;
+  }
+
+  a:hover {
+    @apply text-blue-400;
+  }
 }
 

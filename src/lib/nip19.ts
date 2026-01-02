@@ -11,6 +11,8 @@ import { nip19 } from "nostr-tools";
 
 export type ParsedPubkey = {
   pubkey: string;
+  npub?: string;
+  nprofile?: string;
   relays?: string[];
 };
 
@@ -44,12 +46,14 @@ export function parsePubkey(input: string): ParsedPubkey {
     try {
       const decoded = nip19.decode(trimmed);
       if (decoded.type === "npub") {
-        return { pubkey: decoded.data };
+        return { pubkey: decoded.data, npub: trimmed, nprofile: undefined };
       }
       if (decoded.type === "nprofile") {
         return {
           pubkey: decoded.data.pubkey,
           relays: decoded.data.relays,
+          nprofile: trimmed,
+          npub: undefined,
         };
       }
       throw new Error(`Expected npub or nprofile, got ${decoded.type}`);
@@ -66,6 +70,8 @@ export function parsePubkey(input: string): ParsedPubkey {
         return {
           pubkey: decoded.data.pubkey,
           relays: decoded.data.relays,
+          nprofile: trimmed,
+          npub: undefined,
         };
       }
       throw new Error(`Expected nprofile, got ${decoded.type}`);
@@ -76,7 +82,8 @@ export function parsePubkey(input: string): ParsedPubkey {
 
   // Assume hex pubkey
   if (trimmed.length === 64 && /^[0-9a-fA-F]+$/.test(trimmed)) {
-    return { pubkey: trimmed.toLowerCase() };
+    const npubEncoded = nip19.npubEncode(trimmed.toLowerCase());
+    return { pubkey: trimmed.toLowerCase(), npub: npubEncoded, nprofile: undefined };
   }
 
   throw new Error(`Invalid pubkey format: expected npub, nprofile, or 64-char hex`);

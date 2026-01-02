@@ -187,7 +187,7 @@ export function Profile({ pubkey }: { pubkey: string }) {
     if (!pubkey) return { error: "missing pubkey prop" };
     try {
       const parsed = parsePubkey(pubkey);
-      return { valid: true, hex: parsed.pubkey };
+      return { valid: true, hex: parsed.pubkey, npub: parsed.npub, nprofile: parsed.nprofile };
     } catch (e) {
       return { error: e instanceof Error ? e.message : "invalid pubkey" };
     }
@@ -217,7 +217,7 @@ export function Profile({ pubkey }: { pubkey: string }) {
           className="w-8 h-8 rounded-full object-cover"
         />
       )}
-      <span>{name}</span>
+      <a href={`https://njump.me/${parseResult.npub || parseResult.nprofile}`}>{name}</a>
     </div>
   );
 }
@@ -235,7 +235,7 @@ export function Input({ name, placeholder }: { name: string; placeholder?: strin
       value={form[name] ?? ""}
       placeholder={placeholder ?? name}
       onChange={(e) => updateForm(name, e.target.value)}
-      className="border border-neutral-400 rounded px-2 py-1 w-full bg-white"
+      className="border border-neutral-400 rounded px-2 py-1 w-full bg-transparent"
     />
   );
 }

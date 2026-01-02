@@ -109,3 +109,54 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+
+## Hypernote Pages Architecture
+
+This is a Nostr app for creating and publishing "hypernotes" - interactive pages built with MDX.
+
+### Nostr Integration
+
+- Uses `applesauce-*` libraries for Nostr functionality (core, loaders, relay, signers)
+- `NostrContext` (`src/components/NostrContext.tsx`) manages auth state, signer, relay pool, and event store
+- Pages are published as kind 32616 events with tags: `d` (identifier), `title`, `status`, `hypernote` (version)
+- Media is uploaded via Blossom servers and tracked as kind 32616 events with `hypernote-media` tag
+
+### Page Format
+
+Pages are MDX (Markdown + JSX) parsed by `zig-mdx`. The AST is stored as JSON in the event content.
+
+```mdx
+---
+title: My Page
+bg: blue-500
+---
+
+# Hello
+
+<VStack spacing="4">
+  <Text>Content here</Text>
+</VStack>
+```
+
+### SwiftUI-Inspired Styling System
+
+The styling system (`src/lib/styles.ts`) uses enumerated values instead of arbitrary CSS. Built-in components in `src/lib/builtins.tsx`:
+
+**Layout:** `VStack`, `HStack`, `ZStack` (CSS flexbox/grid based)
+**Content:** `Text`, `Img`
+**Data:** `Note`, `Profile` (fetch and render Nostr data)
+
+Props use relative values:
+- Spacing: `"0"`, `"1"`, `"2"`, `"3"`, `"4"`, `"6"`, `"8"`, `"12"`, `"16"`
+- Sizes: `"auto"`, `"fit"`, `"half"`, `"full"`, or percentage strings
+- Colors: `"color-shade"` format like `"blue-500"`, `"blue-500/50"` (with opacity)
+- Border radius: `"none"`, `"sm"`, `"md"`, `"lg"`, `"xl"`, `"2xl"`, `"full"`
+- Text sizes: `"xs"`, `"sm"`, `"base"`, `"lg"`, `"xl"`, `"2xl"`, `"3xl"`, `"4xl"`
+
+### Key Files
+
+- `src/components/NostrContext.tsx` - Auth and Nostr state
+- `src/components/NodeRenderer.tsx` - Renders MDX AST to React
+- `src/lib/builtins.tsx` - Built-in components (VStack, HStack, etc.)
+- `src/lib/styles.ts` - Style prop parsing and CSS generation
+- `src/hooks/usePageContext.ts` - Page scope and variable evaluation
