@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { Preview } from "./Preview";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { MediaInfo } from "./MediaInfo";
 import { parseMdxWithPositions, renderMdx } from "@/lib/wasm";
 import type { AST } from "zig-mdx";
 import { useNostr } from "./NostrContext";
@@ -9,7 +10,8 @@ import { UserProfile } from "./UserProfile";
 import { nip19, validateEvent, type EventTemplate } from "nostr-tools";
 import { slugify } from "@/lib/utils";
 import yaml from "yaml";
-import { usePages, useUserComponents } from "@/hooks/nostr";
+import { usePages, useUserComponents, useBlossomServers, useHypernoteMedia } from "@/hooks/nostr";
+import { uploadBlob, type BlobDescriptor } from "@/hooks/blossom";
 import type { Event as NostrEvent } from "nostr-tools";
 import { Login } from "./Login";
 import { DEFAULT_RELAYS } from "@/lib/relays";
@@ -50,6 +52,29 @@ export function Editor() {
   const [cursorOffset, setCursorOffset] = useState(0);
   const pages = usePages(userPubkey ?? undefined);
   const components = useUserComponents(userPubkey ?? undefined);
+  const blossomServers = useBlossomServers(userPubkey ?? undefined);
+  const mediaEvents = useHypernoteMedia(userPubkey ?? undefined);
+  const [selectedMedia, setSelectedMedia] = useState<BlobDescriptor | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Parse media events into BlobDescriptor-like objects
+  const parseMediaEvent = (event: NostrEvent): BlobDescriptor | null => {
+    const getTagValue = (name: string) => event.tags.find((t) => t[0] === name)?.[1];
+    const sha256 = getTagValue("d");
+    const url = getTagValue("url");
+    const type = getTagValue("m");
+    const size = getTagValue("size");
+    if (!sha256 || !url) return null;
+    return {
+      sha256,
+      url,
+      type,
+      size: size ? parseInt(size, 10) : 0,
+      uploaded: event.created_at,
+    };
+  };
+
+  const media = mediaEvents?.map(parseMediaEvent).filter((m): m is BlobDescriptor => m !== null) ?? [];
 
   // TODO: debounce this
   useEffect(() => {
@@ -136,11 +161,72 @@ export function Editor() {
     setDocType("page");
     setValue(defaultPageValue);
     setSelectedId(null);
+    setSelectedMedia(null);
   };
 
   const handleNewComponent = () => {
     setDocType("component");
     setValue(defaultComponentValue);
+    setSelectedId(null);
+    setSelectedMedia(null);
+  };
+
+  const handleUploadMedia = async () => {
+    if (isReadonly) {
+      alert("Login with extension to upload");
+      return;
+    }
+    if (!blossomServers?.length) {
+      window.open("https://hzrd149.github.io/applesauce/examples/#blossom/server-manager", "_blank");
+      return;
+    }
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setIsUploading(true);
+      try {
+        // Upload to blossom server
+        const blob = await uploadBlob(
+          blossomServers[0]!.toString(),
+          file,
+          (draft) => nostr.signer.signEvent(draft)
+        );
+
+        // Publish hypernote-media event
+        const version = "1.3.0";
+        const mediaEvent: EventTemplate = {
+          kind: 32616,
+          content: "",
+          created_at: Math.floor(Date.now() / 1000),
+          tags: [
+            ["d", blob.sha256],
+            ["url", blob.url],
+            ["m", blob.type || "application/octet-stream"],
+            ["size", blob.size.toString()],
+            ["t", "hypernote"],
+            ["t", "hypernote-media"],
+            ["t", `hypernote-v${version}`],
+          ],
+        };
+        const signedEvent = await nostr.signer.signEvent(mediaEvent);
+        await nostr.pool.publish(DEFAULT_RELAYS, signedEvent);
+
+        setSelectedMedia(blob);
+        setSelectedId(null);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "Upload failed");
+      }
+      setIsUploading(false);
+    };
+    input.click();
+  };
+
+  const handleSelectMedia = (blob: BlobDescriptor) => {
+    setSelectedMedia(blob);
     setSelectedId(null);
   };
 
@@ -177,6 +263,7 @@ export function Editor() {
   const handleSelectItem = (event: NostrEvent, type: DocType) => {
     setSelectedId(event.id);
     setDocType(type);
+    setSelectedMedia(null);
     const parsed = parseEvent(event);
     setValue(parsed.source);
   };
@@ -242,7 +329,7 @@ export function Editor() {
       <div className="flex-1 flex overflow-hidden">
         {showFileBrowser && (
           <div className="w-[256px] p-2 flex flex-col">
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-2 mb-2 flex-wrap">
               <button
                 onClick={handleNewPage}
                 className="flex-1 text-sm bg-neutral-700 hover:bg-neutral-600 px-2 py-1 rounded"
@@ -255,10 +342,47 @@ export function Editor() {
               >
                 + Component
               </button>
+              <button
+                onClick={handleUploadMedia}
+                disabled={isUploading}
+                className="flex-1 text-sm bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 px-2 py-1 rounded"
+              >
+                {isUploading ? "Uploading..." : "+ Media"}
+              </button>
             </div>
             <div className="bg-neutral-700 p-2 rounded-md border border-neutral-600 flex-1 overflow-auto">
               <FileList events={pages ?? []} type="page" label="Pages" />
               <FileList events={components ?? []} type="component" label="Components" />
+              <div className="mb-4">
+                <div className="text-xs uppercase text-neutral-400 mb-1 px-2">Media</div>
+                {!blossomServers?.length ? (
+                  <div className="text-neutral-500 text-sm px-2">
+                    <a
+                      href="https://hzrd149.github.io/applesauce/examples/#blossom/server-manager"
+                      target="_blank"
+                      rel="noopener"
+                      className="text-purple-400 hover:text-purple-300"
+                    >
+                      Set up blossom server
+                    </a>
+                  </div>
+                ) : media.length === 0 ? (
+                  <div className="text-neutral-500 text-sm px-2">None</div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {media.map((blob) => (
+                      <div
+                        key={blob.sha256}
+                        className={`hover:bg-neutral-600 p-2 rounded-md cursor-pointer ${selectedMedia?.sha256 === blob.sha256 ? "bg-neutral-600" : ""}`}
+                        onClick={() => handleSelectMedia(blob)}
+                      >
+                        <div className="text-sm truncate">{blob.url.split("/").pop()}</div>
+                        <div className="text-xs text-neutral-400">{blob.type || "unknown"}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-2 p-2 bg-neutral-800 rounded-md border border-neutral-700">
               <UserProfile pubkey={userPubkey} />
@@ -283,13 +407,19 @@ export function Editor() {
         </div>
         {showProperties && (
           <div className="w-[256px] p-3 bg-neutral-800 border-l border-neutral-700 overflow-auto">
-            <div className="text-xs uppercase text-neutral-400 mb-3">Properties</div>
-            <PropertiesPanel
-              ast={parsedAst}
-              cursorOffset={cursorOffset}
-              source={value}
-              onSourceChange={setValue}
-            />
+            {selectedMedia ? (
+              <MediaInfo blob={selectedMedia} />
+            ) : (
+              <>
+                <div className="text-xs uppercase text-neutral-400 mb-3">Properties</div>
+                <PropertiesPanel
+                  ast={parsedAst}
+                  cursorOffset={cursorOffset}
+                  source={value}
+                  onSourceChange={setValue}
+                />
+              </>
+            )}
           </div>
         )}
       </div>
