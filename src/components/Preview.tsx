@@ -11,9 +11,11 @@ interface PreviewProps {
   parseError?: string | null;
   /** "feed" constrains to 50vh-100vh (Instagram-style), "fullpage" gives full viewport */
   mode?: "feed" | "fullpage";
+  /** Hide the title bar */
+  hideTitle?: boolean;
 }
 
-export function Preview({ ast, naddr, parseError, mode = "feed" }: PreviewProps) {
+export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = false }: PreviewProps) {
   // Parse frontmatter from AST
   const frontmatter = useMemo(() => {
     const fmNode = ast.children.find((child) => child.type === "frontmatter");
@@ -74,14 +76,16 @@ export function Preview({ ast, naddr, parseError, mode = "feed" }: PreviewProps)
 
   return (
     <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden max-w-full">
-      <div className="p-2 border-b border-neutral-300">
-        <h2 className="font-bold text-center">{frontmatter?.title || "Untitled"}</h2>
-        {naddr && (
-          <div className="text-sm text-neutral-500">
-            <button onClick={() => navigator.clipboard.writeText(naddr)}>Copy naddr</button>
-          </div>
-        )}
-      </div>
+      {!hideTitle && (
+        <div className="p-2 border-b border-neutral-300">
+          <h2 className="font-bold text-center">{frontmatter?.title || "Untitled"}</h2>
+          {naddr && (
+            <div className="text-sm text-neutral-500">
+              <button onClick={() => navigator.clipboard.writeText(naddr)}>Copy naddr</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {parseError && <div className="text-red-500 p-2">{parseError}</div>}
 
@@ -143,12 +147,6 @@ export function Preview({ ast, naddr, parseError, mode = "feed" }: PreviewProps)
             />
           </ScopeProvider>
         </div>
-      </div>
-
-      <div className="p-2 border-t border-neutral-300 max-h-64 overflow-y-auto">
-        <pre className="text-xs bg-neutral-900 text-neutral-200 p-4 rounded-sm whitespace-pre-wrap break-all">
-          {JSON.stringify(ast, null, 2)}
-        </pre>
       </div>
     </div>
   );

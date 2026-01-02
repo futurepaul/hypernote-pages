@@ -6,16 +6,15 @@ import { MediaInfo } from "./MediaInfo";
 import { parseMdxWithPositions, renderMdx } from "@/lib/wasm";
 import type { AST } from "zig-mdx";
 import { useNostr } from "./NostrContext";
-import { UserProfile } from "./UserProfile";
 import { nip19, validateEvent, type EventTemplate } from "nostr-tools";
 import { slugify } from "@/lib/utils";
 import yaml from "yaml";
 import { usePages, useUserComponents, useBlossomServers, useHypernoteMedia } from "@/hooks/nostr";
 import { uploadBlob, type BlobDescriptor } from "@/hooks/blossom";
 import type { Event as NostrEvent } from "nostr-tools";
-import { Login } from "./Login";
 import { DEFAULT_RELAYS } from "@/lib/relays";
 import { Link } from "wouter";
+import { BookOpenText, Wand2, Upload, FilePlus, ImageUp, FileText, Puzzle, Image } from "lucide-react";
 
 type DocType = "page" | "component";
 
@@ -40,7 +39,7 @@ const defaultComponentAst: AST = await parseMdxWithPositions(defaultComponentVal
 
 export function Editor() {
   const nostr = useNostr();
-  const { pubkey: userPubkey, isReadonly, logout } = nostr;
+  const { pubkey: userPubkey, isReadonly } = nostr;
   const [value, setValue] = useState(defaultPageValue);
   const [parsedAst, setParsedAst] = useState<AST>(defaultPageAst);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -91,9 +90,16 @@ export function Editor() {
     parse();
   }, [value]);
 
-  // Show login if not authenticated
+  // Show message if not authenticated
   if (!userPubkey) {
-    return <Login />;
+    return (
+      <div className="min-h-screen bg-neutral-900 flex items-center justify-center">
+        <div className="text-neutral-400 text-center">
+          <p className="mb-2">Login to use the editor</p>
+          <p className="text-sm text-neutral-500">Click the login button in the bottom left</p>
+        </div>
+      </div>
+    );
   }
 
   const handlePublish = async () => {
@@ -268,12 +274,31 @@ export function Editor() {
     setValue(parsed.source);
   };
 
-  function FileList({ events, type, label }: { events: NostrEvent[]; type: DocType; label: string }) {
+  function FileList({
+    events,
+    type,
+    label,
+    icon: Icon,
+    onNew,
+    newLabel,
+    newIcon: NewIcon,
+  }: {
+    events: NostrEvent[];
+    type: DocType;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    onNew: () => void;
+    newLabel: string;
+    newIcon: React.ComponentType<{ className?: string }>;
+  }) {
     const parsed = events.map(parseEvent);
 
     return (
       <div className="mb-4">
-        <div className="text-xs uppercase text-neutral-400 mb-1 px-2">{label}</div>
+        <div className="flex items-center gap-1 text-xs uppercase text-neutral-400 mb-1 px-2">
+          <Icon className="w-3 h-3" />
+          {label}
+        </div>
         {parsed.length === 0 ? (
           <div className="text-neutral-500 text-sm px-2">None</div>
         ) : (
@@ -289,39 +314,45 @@ export function Editor() {
             ))}
           </div>
         )}
+        <button
+          onClick={onNew}
+          className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-200 mt-2 px-2 py-1 border border-neutral-600 rounded hover:border-neutral-500"
+        >
+          <NewIcon className="w-3 h-3" />
+          {newLabel}
+        </button>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      <div className="bg-neutral-900 text-neutral-200 p-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-purple-400 hover:text-purple-300">
-            &larr; Home
-          </Link>
-          <h1 className="text-xl font-bold">Editor</h1>
-          <span className="text-sm text-neutral-400">
-            {docType === "page" ? "Page" : "Component"}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          {isReadonly && <span className="text-yellow-500 text-sm">Read-only</span>}
+      <div className="bg-neutral-900 text-neutral-200 px-3 py-2 flex justify-between items-center border-b border-neutral-800">
+        <Link
+          href="/"
+          className="p-2 rounded-md hover:bg-neutral-800 transition-colors"
+          title="Home"
+        >
+          <BookOpenText className="w-5 h-5 text-neutral-400" />
+        </Link>
+        <div className="flex items-center gap-1">
           <button
-            className="bg-neutral-700 hover:bg-neutral-600 text-white px-4 py-2 rounded-md transition-colors"
+            className="p-2 rounded-md hover:bg-neutral-800 transition-colors"
             onClick={async () => {
               const formatted = await renderMdx(value);
               setValue(formatted);
             }}
+            title="Format"
           >
-            Format
+            <Wand2 className="w-5 h-5 text-neutral-400" />
           </button>
           <button
-            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-md transition-colors"
+            className="p-2 rounded-md hover:bg-neutral-800 disabled:opacity-50 transition-colors"
             onClick={handlePublish}
             disabled={isPublishing || isReadonly}
+            title={isReadonly ? "Read-only mode" : `Publish ${docType}`}
           >
-            {isPublishing ? "Publishing..." : `Publish ${docType}`}
+            <Upload className={`w-5 h-5 ${isPublishing ? "text-purple-400 animate-pulse" : "text-purple-400"}`} />
           </button>
         </div>
       </div>
@@ -329,32 +360,30 @@ export function Editor() {
       <div className="flex-1 flex overflow-hidden">
         {showFileBrowser && (
           <div className="w-[256px] p-2 flex flex-col">
-            <div className="flex gap-2 mb-2 flex-wrap">
-              <button
-                onClick={handleNewPage}
-                className="flex-1 text-sm bg-neutral-700 hover:bg-neutral-600 px-2 py-1 rounded"
-              >
-                + Page
-              </button>
-              <button
-                onClick={handleNewComponent}
-                className="flex-1 text-sm bg-neutral-700 hover:bg-neutral-600 px-2 py-1 rounded"
-              >
-                + Component
-              </button>
-              <button
-                onClick={handleUploadMedia}
-                disabled={isUploading}
-                className="flex-1 text-sm bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 px-2 py-1 rounded"
-              >
-                {isUploading ? "Uploading..." : "+ Media"}
-              </button>
-            </div>
             <div className="bg-neutral-700 p-2 rounded-md border border-neutral-600 flex-1 overflow-auto">
-              <FileList events={pages ?? []} type="page" label="Pages" />
-              <FileList events={components ?? []} type="component" label="Components" />
+              <FileList
+                events={pages ?? []}
+                type="page"
+                label="Pages"
+                icon={FileText}
+                onNew={handleNewPage}
+                newLabel="New page"
+                newIcon={FilePlus}
+              />
+              <FileList
+                events={components ?? []}
+                type="component"
+                label="Components"
+                icon={Puzzle}
+                onNew={handleNewComponent}
+                newLabel="New component"
+                newIcon={FilePlus}
+              />
               <div className="mb-4">
-                <div className="text-xs uppercase text-neutral-400 mb-1 px-2">Media</div>
+                <div className="flex items-center gap-1 text-xs uppercase text-neutral-400 mb-1 px-2">
+                  <Image className="w-3 h-3" />
+                  Media
+                </div>
                 {!blossomServers?.length ? (
                   <div className="text-neutral-500 text-sm px-2">
                     <a
@@ -382,16 +411,19 @@ export function Editor() {
                     ))}
                   </div>
                 )}
+                {blossomServers?.length ? (
+                  <button
+                    onClick={handleUploadMedia}
+                    disabled={isUploading}
+                    className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-200 disabled:opacity-50 mt-2 px-2 py-1 border border-neutral-600 rounded hover:border-neutral-500"
+                  >
+                    <ImageUp className="w-3 h-3" />
+                    {isUploading ? "Uploading..." : "Upload media"}
+                  </button>
+                ) : null}
               </div>
-            </div>
-            <div className="mt-2 p-2 bg-neutral-800 rounded-md border border-neutral-700">
-              <UserProfile pubkey={userPubkey} />
-              <button
-                onClick={logout}
-                className="w-full mt-2 text-sm text-neutral-400 hover:text-neutral-200 py-1"
-              >
-                Logout
-              </button>
+              {/* Spacer so we can always see the bottom contents */}
+              <div className="h-40"></div>
             </div>
           </div>
         )}

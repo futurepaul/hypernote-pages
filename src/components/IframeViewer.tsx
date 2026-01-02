@@ -1,7 +1,7 @@
 import { usePage } from "@/hooks/nostr";
 import type { AST } from "zig-mdx";
 import yaml from "yaml";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { NodeRenderer } from "@/components/NodeRenderer";
 import { usePageContext, ScopeProvider } from "@/hooks/usePageContext";
 
@@ -19,20 +19,25 @@ function IframePreview({ ast }: { ast: AST }) {
   }, [ast]);
 
   const scope = usePageContext(frontmatter);
+  const title = frontmatter?.title || "Untitled";
+
+  useEffect(() => {
+    document.title = title;
+    return () => {
+      document.title = "Hypernote Pages";
+    };
+  }, [title]);
 
   return (
-    <div className="min-h-screen max-h-screen bg-neutral-200 text-neutral-800 grid grid-rows-[auto_1fr]">
-      <div className="p-2 border-b border-neutral-300">
-        <h2 className="font-bold text-center">{frontmatter?.title || "Untitled"}</h2>
-      </div>
-        <ScopeProvider value={scope}>
-          <NodeRenderer
-            node={{ type: "root", children: ast.children }}
-            key="root"
-            keyName="root"
-            scope={scope}
-          />
-        </ScopeProvider>
+    <div className="min-h-screen max-h-screen bg-neutral-200 text-neutral-800">
+      <ScopeProvider value={scope}>
+        <NodeRenderer
+          node={{ type: "root", children: ast.children }}
+          key="root"
+          keyName="root"
+          scope={scope}
+        />
+      </ScopeProvider>
     </div>
   );
 }

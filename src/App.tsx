@@ -6,10 +6,12 @@ import { Editor } from "@/components/Editor";
 import { IframeViewer } from "@/components/IframeViewer";
 import { NostrProvider } from "./components/NostrContext";
 import { Home } from "./components/Home";
+import { FloatingProfile } from "./components/FloatingProfile";
 
 export function App() {
   return (
     <NostrProvider>
+      <FloatingProfile />
       <Switch>
         <Route path="/hn/:id">{(params) => <IframeViewer id={params.id} />}</Route>
         <Route path="/editor" component={() => <Editor />} />

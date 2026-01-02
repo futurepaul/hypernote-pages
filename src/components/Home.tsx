@@ -1,18 +1,76 @@
-import { usePages } from "@/hooks/nostr";
+import { usePages, useProfile } from "@/hooks/nostr";
 import { Preview } from "./Preview";
 import { nip19, validateEvent, type EventTemplate, type Event as NostrEvent } from "nostr-tools";
 import { useNostr } from "./NostrContext";
-import { Login } from "./Login";
-import { UserProfile } from "./UserProfile";
 import { DEFAULT_RELAYS } from "@/lib/relays";
 import { useState } from "react";
 import { slugify } from "@/lib/utils";
 import yaml from "yaml";
 import { Link } from "wouter";
+import { PenSquare, GitFork, ExternalLink } from "lucide-react";
+import { getDisplayName, getProfilePicture } from "applesauce-core/helpers";
+
+function AuthorInfo({ pubkey }: { pubkey: string }) {
+  const profile = useProfile(pubkey);
+  return (
+    <div className="flex items-center gap-2">
+      <img
+        className="rounded-full w-8 h-8 object-cover"
+        src={getProfilePicture(profile, `https://robohash.org/${pubkey}.png`)}
+        alt={getDisplayName(profile)}
+      />
+      <span className="text-xs text-neutral-300 truncate max-w-[80px]">
+        {getDisplayName(profile)}
+      </span>
+    </div>
+  );
+}
+
+function PageCard({
+  page,
+  naddr,
+  onCopy,
+  copying,
+  canCopy,
+}: {
+  page: NostrEvent;
+  naddr: string;
+  onCopy: () => void;
+  copying: boolean;
+  canCopy: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-[160px_1fr] gap-4">
+      <div className="flex flex-col gap-2 bg-neutral-800 rounded-lg p-2 border border-neutral-700">
+        <AuthorInfo pubkey={page.pubkey} />
+        <Link
+          href={`/hn/${naddr}`}
+          className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
+        >
+          <ExternalLink className="w-3 h-3" />
+          View
+        </Link>
+        {canCopy && (
+          <button
+            onClick={onCopy}
+            disabled={copying}
+            className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-200 disabled:opacity-50"
+          >
+            <GitFork className="w-3 h-3" />
+            {copying ? "..." : "Fork"}
+          </button>
+        )}
+      </div>
+      <div className="min-w-0 overflow-hidden">
+        <Preview ast={JSON.parse(page.content)} />
+      </div>
+    </div>
+  );
+}
 
 export function Home() {
   const nostr = useNostr();
-  const { pubkey, isReadonly, logout } = nostr;
+  const { pubkey, isReadonly } = nostr;
   const pages = usePages();
   const [copying, setCopying] = useState<string | null>(null);
 
@@ -72,30 +130,23 @@ export function Home() {
     setCopying(null);
   };
 
-  if (!pubkey) {
-    return <Login />;
-  }
-
   return (
     <div className="min-h-screen bg-neutral-900">
-      <div className="p-4 border-b border-neutral-700 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-neutral-100">Hypernote Pages</h1>
-        <div className="flex items-center gap-4">
-          <Link href="/editor" className="text-purple-400 hover:text-purple-300">
-            Editor
-          </Link>
-          <UserProfile pubkey={pubkey} />
-          <button onClick={logout} className="text-neutral-400 hover:text-neutral-200 text-sm">
-            Logout
-          </button>
-        </div>
-      </div>
+      {pubkey && (
+        <Link
+          href="/editor"
+          className="fixed top-4 right-4 z-50 bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 rounded-full p-3 transition-colors"
+          title="Editor"
+        >
+          <PenSquare className="w-5 h-5 text-neutral-300" />
+        </Link>
+      )}
 
-      <div className="p-4">
+      <div className="p-4 pt-16">
         {(!pages || pages.length === 0) && (
           <div className="text-neutral-500 text-center py-8">No pages found</div>
         )}
-        <div className="grid gap-4 max-w-2xl mx-auto">
+        <div className="grid gap-4 max-w-3xl mx-auto">
           {pages?.map((page) => {
             const dTag = getTagValue(page, 'd') || page.id;
             const naddr = nip19.naddrEncode({
@@ -104,27 +155,16 @@ export function Home() {
               identifier: dTag,
               relays: DEFAULT_RELAYS,
             });
-            const isOwn = page.pubkey === pubkey;
 
             return (
-              <div key={page.id} className="relative">
-                <Preview
-                  ast={JSON.parse(page.content)}
-                  naddr={naddr}
-                />
-                  <button
-                    onClick={() => handleCopyToDrafts(page)}
-                    disabled={copying === page.id || isReadonly}
-                    className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-xs px-3 py-1 rounded transition-colors"
-                  >
-                    {copying === page.id ? "Copying..." : "Copy to Drafts"}
-                  </button>
-                {isOwn && (
-                  <span className="absolute top-2 right-2 bg-green-600 text-white text-xs px-3 py-1 rounded">
-                    Your page
-                  </span>
-                )}
-              </div>
+              <PageCard
+                key={page.id}
+                page={page}
+                naddr={naddr}
+                onCopy={() => handleCopyToDrafts(page)}
+                copying={copying === page.id}
+                canCopy={!!pubkey && !isReadonly}
+              />
             );
           })}
         </div>
