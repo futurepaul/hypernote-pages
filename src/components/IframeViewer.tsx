@@ -26,10 +26,20 @@ function IframePreview({ ast }: { ast: AST }) {
   const bg: string | undefined = frontmatter?.canvas?.bg ?? frontmatter?.bg;
   const bgMode: "cover" | "tile" | "contain" = frontmatter?.canvas?.bgMode ?? frontmatter?.bgMode ?? "cover";
   const color: string | undefined = frontmatter?.canvas?.color ?? frontmatter?.color;
-  const padding: string | undefined = frontmatter?.canvas?.padding ?? frontmatter?.padding;
+  const padding: string | undefined = frontmatter?.canvas?.padding ?? frontmatter?.padding ?? "4";
+  const overflow: "auto" | "hidden" | "scroll" | "visible" = frontmatter?.canvas?.overflow ?? frontmatter?.overflow ?? "auto";
 
   const styles = useMemo(() => {
-    const s: React.CSSProperties = {};
+    const s: React.CSSProperties = {
+      position: "relative",
+      // Flex container so children can use grow="1" and overflow="scroll"
+      display: "flex",
+      flexDirection: "column",
+    };
+
+    if (overflow) {
+      s.overflow = overflow;
+    }
 
     if (bg) {
       const bgType = detectBgType(bg);

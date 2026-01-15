@@ -43,7 +43,6 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
   const canvasStyles = useMemo(() => {
     const styles: React.CSSProperties = {
       position: "relative",
-      width: "100%",
       // Flex container so children can use grow="1" and overflow="scroll"
       display: "flex",
       flexDirection: "column",
@@ -53,11 +52,7 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
     if (mode === "feed") {
       // Instagram-style: fixed height container
       styles.height = "70vh";
-    } else {
-      // Full page: take full viewport
-      styles.height = "100vh";
-      styles.width = "100vw";
-    }
+    } 
 
     // Overflow - default to auto, can be overridden via frontmatter
     styles.overflow = overflow;

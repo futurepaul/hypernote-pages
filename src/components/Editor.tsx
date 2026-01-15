@@ -372,9 +372,9 @@ export function Editor() {
               >
                 <div className="flex items-center gap-1.5">
                   {item.status === "published" ? (
-                    <Globe className="w-3 h-3 text-green-400 flex-shrink-0" title="Published" />
+                    <Globe className="w-3 h-3 text-green-400 shrink-0" name="Published" />
                   ) : (
-                    <FileEdit className="w-3 h-3 text-yellow-400 flex-shrink-0" title="Draft" />
+                    <FileEdit className="w-3 h-3 text-yellow-400 shrink-0" name="Draft" />
                   )}
                   <span className="text-sm truncate">{item.displayName}</span>
                 </div>
