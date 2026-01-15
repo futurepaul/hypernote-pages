@@ -55,6 +55,7 @@ export function Editor() {
   const mediaEvents = useHypernoteMedia(userPubkey ?? undefined);
   const [selectedMedia, setSelectedMedia] = useState<BlobDescriptor | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Parse media events into BlobDescriptor-like objects
   const parseMediaEvent = (event: NostrEvent): BlobDescriptor | null => {
@@ -160,8 +161,6 @@ export function Editor() {
     }
     setIsPublishing(false);
   };
-
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const handleNewPage = () => {
     setDocType("page");
