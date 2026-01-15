@@ -60,7 +60,7 @@ function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
       ref={dialogRef}
       onClick={handleBackdropClick}
       onClose={onClose}
-      className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full"
+      className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full m-auto"
     >
       <div className="bg-neutral-800 rounded-lg p-6 border border-neutral-700">
         <h2 className="text-lg font-bold text-neutral-100 mb-4 text-center">
