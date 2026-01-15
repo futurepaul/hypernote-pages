@@ -71,13 +71,19 @@ function PageCard({
 export function Home() {
   const nostr = useNostr();
   const { pubkey, isReadonly, signer, needsUnlock } = nostr;
-  const pages = usePages();
+  const allPages = usePages();
   const [copying, setCopying] = useState<string | null>(null);
 
   const getTagValue = (event: NostrEvent, tagName: string) => {
     const tag = event.tags.find((t) => t[0] === tagName);
     return tag?.[1];
   };
+
+  // Filter to only show published pages (or pages without status tag for backwards compatibility)
+  const pages = allPages?.filter(page => {
+    const status = getTagValue(page, 'status');
+    return !status || status === 'published';
+  });
 
   const handleCopyToDrafts = async (page: NostrEvent) => {
     if (!pubkey || isReadonly) {

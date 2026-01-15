@@ -27,13 +27,16 @@ export function useProfile(
     );
   }
 
-export function usePages(authorPubkey?: string) {
+export function usePages(authorPubkey?: string, status?: "published" | "draft") {
   const nostr = useNostr();
   return useObservableMemo(
     () => {
       const filter: any = { kinds: [32616], "#t": ["hypernote-page"], limit: 20 };
       if (authorPubkey) {
         filter.authors = [authorPubkey];
+      }
+      if (status) {
+        filter["#status"] = [status];
       }
       return nostr?.pool.relay(DEFAULT_RELAYS[0]!).subscription([filter])
       .pipe(
@@ -44,7 +47,7 @@ export function usePages(authorPubkey?: string) {
         startWith([]),
       );
     },
-    [nostr?.eventStore, authorPubkey]
+    [nostr?.eventStore, authorPubkey, status]
   );
 }
 

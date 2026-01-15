@@ -14,7 +14,7 @@ import { uploadBlob, type BlobDescriptor } from "@/hooks/blossom";
 import type { Event as NostrEvent } from "nostr-tools";
 import { DEFAULT_RELAYS } from "@/lib/relays";
 import { Link } from "wouter";
-import { BookOpenText, Wand2, Upload, FilePlus, ImageUp, FileText, Puzzle, Image } from "lucide-react";
+import { BookOpenText, Wand2, Upload, FilePlus, ImageUp, FileText, Puzzle, Image, Globe, FileEdit, EyeOff } from "lucide-react";
 
 type DocType = "page" | "component";
 
@@ -56,6 +56,8 @@ export function Editor() {
   const [selectedMedia, setSelectedMedia] = useState<BlobDescriptor | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<NostrEvent | null>(null);
+  const [isUnpublishing, setIsUnpublishing] = useState(false);
 
   // Parse media events into BlobDescriptor-like objects
   const parseMediaEvent = (event: NostrEvent): BlobDescriptor | null => {
@@ -170,6 +172,7 @@ export function Editor() {
     setDocType("page");
     setValue(defaultPageValue);
     setSelectedId(null);
+    setSelectedEvent(null);
     setSelectedMedia(null);
   };
 
@@ -177,7 +180,57 @@ export function Editor() {
     setDocType("component");
     setValue(defaultComponentValue);
     setSelectedId(null);
+    setSelectedEvent(null);
     setSelectedMedia(null);
+  };
+
+  const handleUnpublish = async () => {
+    if (!selectedEvent) return;
+    if (isReadonly) {
+      alert("Login with a signer to unpublish");
+      return;
+    }
+    if (!signer || needsUnlock) {
+      alert("Please unlock your signer first (click the lock icon)");
+      return;
+    }
+
+    setIsUnpublishing(true);
+    try {
+      // Get existing tags and update status to draft
+      const newTags = selectedEvent.tags.map(tag => {
+        if (tag[0] === 'status') {
+          return ['status', 'draft'];
+        }
+        return tag;
+      });
+
+      // If no status tag existed, add one
+      if (!newTags.some(tag => tag[0] === 'status')) {
+        newTags.push(['status', 'draft']);
+      }
+
+      const eventTemplate: EventTemplate = {
+        kind: 32616,
+        content: selectedEvent.content,
+        tags: newTags,
+        created_at: Math.floor(Date.now() / 1000),
+      };
+
+      const signed = await signer!.signEvent(eventTemplate);
+      if (!validateEvent(signed)) {
+        throw new Error("Failed to verify event");
+      }
+
+      await nostr.pool.publish(DEFAULT_RELAYS, signed);
+      alert("Page unpublished (moved to draft)");
+
+      // Update the selected event to reflect new status
+      setSelectedEvent({ ...selectedEvent, tags: newTags });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Unpublish failed");
+    }
+    setIsUnpublishing(false);
   };
 
   const handleUploadMedia = async () => {
@@ -275,6 +328,7 @@ export function Editor() {
 
   const handleSelectItem = (event: NostrEvent, type: DocType) => {
     setSelectedId(event.id);
+    setSelectedEvent(event);
     setDocType(type);
     setSelectedMedia(null);
     const parsed = parseEvent(event);
@@ -316,7 +370,14 @@ export function Editor() {
                 className={`hover:bg-neutral-600 p-2 rounded-md cursor-pointer ${selectedId === item.id ? "bg-neutral-600" : ""}`}
                 onClick={() => handleSelectItem(events[i]!, type)}
               >
-                <div className="text-sm">{item.displayName}</div>
+                <div className="flex items-center gap-1.5">
+                  {item.status === "published" ? (
+                    <Globe className="w-3 h-3 text-green-400 flex-shrink-0" title="Published" />
+                  ) : (
+                    <FileEdit className="w-3 h-3 text-yellow-400 flex-shrink-0" title="Draft" />
+                  )}
+                  <span className="text-sm truncate">{item.displayName}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -353,6 +414,16 @@ export function Editor() {
           >
             <Wand2 className="w-5 h-5 text-neutral-400" />
           </button>
+          {selectedEvent && selectedEvent.tags.find(t => t[0] === 'status')?.[1] === 'published' && (
+            <button
+              className="p-2 rounded-md hover:bg-neutral-800 disabled:opacity-50 transition-colors"
+              onClick={handleUnpublish}
+              disabled={isUnpublishing || isReadonly}
+              title="Unpublish (move to draft)"
+            >
+              <EyeOff className={`w-5 h-5 ${isUnpublishing ? "text-yellow-400 animate-pulse" : "text-yellow-400"}`} />
+            </button>
+          )}
           <button
             className="p-2 rounded-md hover:bg-neutral-800 disabled:opacity-50 transition-colors"
             onClick={handlePublish}
