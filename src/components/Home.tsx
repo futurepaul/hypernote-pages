@@ -70,7 +70,7 @@ function PageCard({
 
 export function Home() {
   const nostr = useNostr();
-  const { pubkey, isReadonly } = nostr;
+  const { pubkey, isReadonly, signer, needsUnlock } = nostr;
   const pages = usePages();
   const [copying, setCopying] = useState<string | null>(null);
 
@@ -81,7 +81,11 @@ export function Home() {
 
   const handleCopyToDrafts = async (page: NostrEvent) => {
     if (!pubkey || isReadonly) {
-      alert("Login with extension to copy pages");
+      alert("Login with a signer to copy pages");
+      return;
+    }
+    if (!signer || needsUnlock) {
+      alert("Please unlock your signer first (click the lock icon)");
       return;
     }
 
@@ -117,7 +121,7 @@ export function Home() {
         created_at: Math.floor(Date.now() / 1000),
       };
 
-      const signed = await nostr.signer.signEvent(eventTemplate);
+      const signed = await signer!.signEvent(eventTemplate);
       if (!validateEvent(signed)) {
         throw new Error("Invalid event");
       }

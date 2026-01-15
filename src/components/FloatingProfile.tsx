@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { LogIn, LogOut, BookOpenText } from "lucide-react";
+import { LogIn, LogOut, BookOpenText, Lock, Unlock } from "lucide-react";
 import { useNostr } from "./NostrContext";
 import { useProfile } from "@/hooks/nostr";
 import { getDisplayName, getProfilePicture } from "applesauce-core/helpers";
@@ -324,33 +324,138 @@ function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-function LoggedInProfile({ pubkey }: { pubkey: string }) {
-  const { logout } = useNostr();
-  const profile = useProfile(pubkey);
+function UnlockModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const { unlockSigner } = useNostr();
+  const [passwordInput, setPasswordInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (open) {
+      dialog.showModal();
+    } else {
+      dialog.close();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setPasswordInput("");
+      setError(null);
+    }
+  }, [open]);
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordInput) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await unlockSigner(passwordInput);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to unlock");
+    }
+    setLoading(false);
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+    if (e.target === dialogRef.current) {
+      onClose();
+    }
+  };
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 bg-neutral-800 border border-neutral-600 rounded-lg px-3 py-2 flex items-center gap-3">
-      <Link
-        href="/"
-        className="text-neutral-400 hover:text-neutral-200 transition-colors"
-        title="Home"
-      >
-        <BookOpenText className="w-5 h-5" />
-      </Link>
-      <img
-        className="rounded-full w-8 h-8 object-cover"
-        src={getProfilePicture(profile, `https://robohash.org/${pubkey}.png`)}
-        alt={getDisplayName(profile)}
-      />
-      <span className="text-sm text-neutral-200">{getDisplayName(profile)}</span>
-      <button
-        onClick={logout}
-        className="text-neutral-400 hover:text-neutral-200 transition-colors"
-        title="Logout"
-      >
-        <LogOut className="w-4 h-4" />
-      </button>
-    </div>
+    <dialog
+      ref={dialogRef}
+      onClick={handleBackdropClick}
+      onClose={onClose}
+      className="backdrop:bg-black/50 bg-transparent p-0 max-w-sm w-full m-auto"
+    >
+      <div className="bg-neutral-800 rounded-lg p-6 border border-neutral-700">
+        <h2 className="text-lg font-bold text-neutral-100 mb-4 text-center">
+          Unlock Signer
+        </h2>
+
+        {error && (
+          <div className="bg-red-900/50 border border-red-700 text-red-200 px-3 py-2 rounded mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleUnlock}>
+          <label className="block text-sm text-neutral-400 mb-1">
+            Enter your password
+          </label>
+          <input
+            type="password"
+            value={passwordInput}
+            onChange={(e) => setPasswordInput(e.target.value)}
+            placeholder="Password"
+            className="w-full bg-neutral-700 border border-neutral-600 rounded px-3 py-2 text-neutral-100 placeholder-neutral-400 mb-3 focus:outline-none focus:border-purple-500"
+            autoFocus
+          />
+          <button
+            type="submit"
+            disabled={loading || !passwordInput}
+            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded transition-colors"
+          >
+            {loading ? "Unlocking..." : "Unlock"}
+          </button>
+        </form>
+
+        <p className="text-neutral-500 text-xs mt-4 text-center">
+          Enter your password to unlock signing.
+        </p>
+      </div>
+    </dialog>
+  );
+}
+
+function LoggedInProfile({ pubkey }: { pubkey: string }) {
+  const { logout, needsUnlock } = useNostr();
+  const profile = useProfile(pubkey);
+  const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+
+  return (
+    <>
+      <div className="fixed bottom-4 left-4 z-50 bg-neutral-800 border border-neutral-600 rounded-lg px-3 py-2 flex items-center gap-3">
+        <Link
+          href="/"
+          className="text-neutral-400 hover:text-neutral-200 transition-colors"
+          title="Home"
+        >
+          <BookOpenText className="w-5 h-5" />
+        </Link>
+        <img
+          className="rounded-full w-8 h-8 object-cover"
+          src={getProfilePicture(profile, `https://robohash.org/${pubkey}.png`)}
+          alt={getDisplayName(profile)}
+        />
+        <span className="text-sm text-neutral-200">{getDisplayName(profile)}</span>
+        {needsUnlock && (
+          <button
+            onClick={() => setUnlockModalOpen(true)}
+            className="text-yellow-400 hover:text-yellow-300 transition-colors"
+            title="Unlock signer"
+          >
+            <Lock className="w-4 h-4" />
+          </button>
+        )}
+        <button
+          onClick={logout}
+          className="text-neutral-400 hover:text-neutral-200 transition-colors"
+          title="Logout"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
+      </div>
+      <UnlockModal open={unlockModalOpen} onClose={() => setUnlockModalOpen(false)} />
+    </>
   );
 }
 

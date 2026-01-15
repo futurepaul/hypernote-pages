@@ -39,7 +39,7 @@ const defaultComponentAst: AST = await parseMdxWithPositions(defaultComponentVal
 
 export function Editor() {
   const nostr = useNostr();
-  const { pubkey: userPubkey, isReadonly } = nostr;
+  const { pubkey: userPubkey, isReadonly, signer, needsUnlock } = nostr;
   const [value, setValue] = useState(defaultPageValue);
   const [parsedAst, setParsedAst] = useState<AST>(defaultPageAst);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -105,7 +105,11 @@ export function Editor() {
 
   const handlePublish = async () => {
     if (isReadonly) {
-      alert("Login with extension to publish");
+      alert("Login with a signer to publish");
+      return;
+    }
+    if (!signer || needsUnlock) {
+      alert("Please unlock your signer first (click the lock icon)");
       return;
     }
     setIsPublishing(true);
@@ -142,7 +146,7 @@ export function Editor() {
         tags,
         created_at: Math.floor(Date.now() / 1000),
       };
-      const res = await nostr.signer.signEvent(eventTemplate);
+      const res = await signer!.signEvent(eventTemplate);
 
       const verified = validateEvent(res);
       if (!verified) {
@@ -178,7 +182,11 @@ export function Editor() {
 
   const handleUploadMedia = async () => {
     if (isReadonly) {
-      alert("Login with extension to upload");
+      alert("Login with a signer to upload");
+      return;
+    }
+    if (!signer || needsUnlock) {
+      alert("Please unlock your signer first (click the lock icon)");
       return;
     }
     if (!blossomServers?.length) {
@@ -198,7 +206,7 @@ export function Editor() {
         const blob = await uploadBlob(
           blossomServers[0]!.toString(),
           file,
-          (draft) => nostr.signer.signEvent(draft)
+          (draft) => signer!.signEvent(draft)
         );
 
         // Publish hypernote-media event
@@ -217,7 +225,7 @@ export function Editor() {
             ["t", `hypernote-v${version}`],
           ],
         };
-        const signedEvent = await nostr.signer.signEvent(mediaEvent);
+        const signedEvent = await signer!.signEvent(mediaEvent);
         await nostr.pool.publish(DEFAULT_RELAYS, signedEvent);
 
         setSelectedMedia(blob);

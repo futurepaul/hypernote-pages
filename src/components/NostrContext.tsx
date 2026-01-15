@@ -14,6 +14,7 @@ import { LOOKUP_RELAYS, DEFAULT_RELAYS } from "@/lib/relays";
 const NCRYPTSEC_STORAGE_KEY = "hn-ncryptsec";
 
 type Signer = ExtensionSigner | PasswordSigner;
+type LoginMethod = 'extension' | 'npub' | 'nsec' | 'password' | null;
 
 interface NostrContextValue {
   eventStore: EventStore;
@@ -25,10 +26,13 @@ interface NostrContextValue {
   isReadonly: boolean;
   hasExtension: boolean;
   hasStoredKey: boolean;
+  needsUnlock: boolean;
+  loginMethod: LoginMethod;
   login: (method: 'extension' | 'npub' | 'nsec' | 'password', input?: string, password?: string) => Promise<void>;
   logout: () => void;
   lock: () => void;
   clearStoredKey: () => void;
+  unlockSigner: (password: string) => Promise<void>;
 }
 
 export const NostrContext = createContext<NostrContextValue | null>(null);
@@ -67,6 +71,8 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
     return false;
   });
   const [activeSigner, setActiveSigner] = useState<Signer | null>(null);
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>(null);
+  const [needsUnlock, setNeedsUnlock] = useState(false);
 
   // Check for extension on mount
   useEffect(() => {
@@ -96,12 +102,22 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
     const stored = localStorage.getItem("hn-auth");
     if (stored) {
       try {
-        const { pubkey, isReadonly } = JSON.parse(stored);
+        const { pubkey, isReadonly, method } = JSON.parse(stored);
         setPubkey(pubkey);
         setIsReadonly(isReadonly);
+        setLoginMethod(method || null);
+
+        // For extension login, try to restore signer
+        if (method === 'extension' && hasExtension) {
+          setActiveSigner(extensionSigner);
+        }
+        // For password login, mark as needing unlock
+        else if (method === 'password' && hasStoredKey) {
+          setNeedsUnlock(true);
+        }
       } catch {}
     }
-  }, []);
+  }, [hasExtension, hasStoredKey]);
 
   const login = useCallback(async (method: 'extension' | 'npub' | 'nsec' | 'password', input?: string, password?: string) => {
     if (method === 'extension') {
@@ -109,6 +125,8 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
       setPubkey(pk);
       setIsReadonly(false);
       setActiveSigner(extensionSigner);
+      setLoginMethod('extension');
+      setNeedsUnlock(false);
       localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: false, method: 'extension' }));
     } else if (method === 'npub' && input) {
       let pk = input;
@@ -121,6 +139,8 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
       setPubkey(pk);
       setIsReadonly(true);
       setActiveSigner(null);
+      setLoginMethod('npub');
+      setNeedsUnlock(false);
       localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: true, method: 'npub' }));
     } else if (method === 'nsec' && input && password) {
       // Setup new nsec with password encryption
@@ -147,6 +167,8 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
       setPubkey(pk);
       setIsReadonly(false);
       setActiveSigner(passwordSigner);
+      setLoginMethod('password');
+      setNeedsUnlock(false);
       localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: false, method: 'password' }));
     } else if (method === 'password' && input) {
       // Unlock existing stored key with password
@@ -155,14 +177,24 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
       setPubkey(pk);
       setIsReadonly(false);
       setActiveSigner(passwordSigner);
+      setLoginMethod('password');
+      setNeedsUnlock(false);
       localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: false, method: 'password' }));
     }
+  }, []);
+
+  const unlockSigner = useCallback(async (password: string) => {
+    await passwordSigner.unlock(password);
+    setActiveSigner(passwordSigner);
+    setNeedsUnlock(false);
   }, []);
 
   const logout = useCallback(() => {
     setPubkey(null);
     setIsReadonly(false);
     setActiveSigner(null);
+    setLoginMethod(null);
+    setNeedsUnlock(false);
     passwordSigner.lock();
     localStorage.removeItem("hn-auth");
   }, []);
@@ -171,6 +203,7 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
     passwordSigner.lock();
     setPubkey(null);
     setActiveSigner(null);
+    setNeedsUnlock(true);
     localStorage.removeItem("hn-auth");
   }, []);
 
@@ -191,11 +224,14 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
     isReadonly,
     hasExtension,
     hasStoredKey,
+    needsUnlock,
+    loginMethod,
     login,
     logout,
     lock,
     clearStoredKey,
-  }), [pubkey, isReadonly, hasExtension, hasStoredKey, login, logout, lock, clearStoredKey, activeSigner]);
+    unlockSigner,
+  }), [pubkey, isReadonly, hasExtension, hasStoredKey, needsUnlock, loginMethod, login, logout, lock, clearStoredKey, unlockSigner, activeSigner]);
 
   return <NostrContext value={value}>{children}</NostrContext>;
 };
