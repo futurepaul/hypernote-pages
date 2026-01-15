@@ -7,10 +7,13 @@ import { Link } from "wouter";
 
 function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const { login, hasExtension } = useNostr();
+  const { login, hasExtension, hasStoredKey, clearStoredKey } = useNostr();
   const [npubInput, setNpubInput] = useState("");
+  const [nsecInput, setNsecInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showNsecSetup, setShowNsecSetup] = useState(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -20,6 +23,17 @@ function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
       dialog.showModal();
     } else {
       dialog.close();
+    }
+  }, [open]);
+
+  // Reset form state when modal closes
+  useEffect(() => {
+    if (!open) {
+      setNpubInput("");
+      setNsecInput("");
+      setPasswordInput("");
+      setError(null);
+      setShowNsecSetup(false);
     }
   }, [open]);
 
@@ -49,6 +63,40 @@ function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     setLoading(false);
   };
 
+  const handlePasswordUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordInput) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await login("password", passwordInput);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to unlock");
+    }
+    setLoading(false);
+  };
+
+  const handleNsecSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nsecInput.trim() || !passwordInput) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await login("nsec", nsecInput.trim(), passwordInput);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Invalid nsec or setup failed");
+    }
+    setLoading(false);
+  };
+
+  const handleReset = () => {
+    clearStoredKey();
+    setPasswordInput("");
+    setError(null);
+  };
+
   const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
     if (e.target === dialogRef.current) {
       onClose();
@@ -73,6 +121,7 @@ function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
           </div>
         )}
 
+        {/* Extension login */}
         {hasExtension && (
           <button
             onClick={handleExtensionLogin}
@@ -83,6 +132,163 @@ function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
           </button>
         )}
 
+        {/* Password unlock (if stored key exists) */}
+        {hasStoredKey && !showNsecSetup && (
+          <>
+            {hasExtension && (
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-neutral-600"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-neutral-800 text-neutral-400">or</span>
+                </div>
+              </div>
+            )}
+            <form onSubmit={handlePasswordUnlock}>
+              <label className="block text-sm text-neutral-400 mb-1">
+                Unlock with password
+              </label>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Enter your password"
+                className="w-full bg-neutral-700 border border-neutral-600 rounded px-3 py-2 text-neutral-100 placeholder-neutral-400 mb-3 focus:outline-none focus:border-purple-500"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="flex-1 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 font-medium py-2 px-4 rounded transition-colors"
+                >
+                  Reset
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !passwordInput}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded transition-colors"
+                >
+                  {loading ? "Unlocking..." : "Unlock"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+
+        {/* Nsec setup (if no stored key and no extension, or user clicked to show) */}
+        {!hasStoredKey && !hasExtension && (
+          <form onSubmit={handleNsecSetup}>
+            <label className="block text-sm text-neutral-400 mb-1">
+              Enter your nsec
+            </label>
+            <input
+              type="password"
+              value={nsecInput}
+              onChange={(e) => setNsecInput(e.target.value)}
+              placeholder="nsec1..."
+              className="w-full bg-neutral-700 border border-neutral-600 rounded px-3 py-2 text-neutral-100 placeholder-neutral-400 mb-3 focus:outline-none focus:border-purple-500"
+            />
+            <label className="block text-sm text-neutral-400 mb-1">
+              Choose an encryption password
+            </label>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="Password to encrypt your key"
+              className="w-full bg-neutral-700 border border-neutral-600 rounded px-3 py-2 text-neutral-100 placeholder-neutral-400 mb-3 focus:outline-none focus:border-purple-500"
+            />
+            <button
+              type="submit"
+              disabled={loading || !nsecInput.trim() || !passwordInput}
+              className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded transition-colors"
+            >
+              {loading ? "Setting up..." : "Login with nsec"}
+            </button>
+            <p className="text-neutral-500 text-xs mt-2 text-center">
+              Your key will be encrypted and stored locally.
+            </p>
+          </form>
+        )}
+
+        {/* Nsec setup option when extension exists but user wants nsec */}
+        {!hasStoredKey && hasExtension && !showNsecSetup && (
+          <>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-neutral-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-neutral-800 text-neutral-400">or</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowNsecSetup(true)}
+              className="w-full bg-neutral-700 hover:bg-neutral-600 text-neutral-300 font-medium py-2 px-4 rounded transition-colors"
+            >
+              Login with nsec
+            </button>
+          </>
+        )}
+
+        {/* Nsec setup form when user clicked the button */}
+        {!hasStoredKey && hasExtension && showNsecSetup && (
+          <>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-neutral-600"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-neutral-800 text-neutral-400">or</span>
+              </div>
+            </div>
+            <form onSubmit={handleNsecSetup}>
+              <label className="block text-sm text-neutral-400 mb-1">
+                Enter your nsec
+              </label>
+              <input
+                type="password"
+                value={nsecInput}
+                onChange={(e) => setNsecInput(e.target.value)}
+                placeholder="nsec1..."
+                className="w-full bg-neutral-700 border border-neutral-600 rounded px-3 py-2 text-neutral-100 placeholder-neutral-400 mb-3 focus:outline-none focus:border-purple-500"
+              />
+              <label className="block text-sm text-neutral-400 mb-1">
+                Choose an encryption password
+              </label>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Password to encrypt your key"
+                className="w-full bg-neutral-700 border border-neutral-600 rounded px-3 py-2 text-neutral-100 placeholder-neutral-400 mb-3 focus:outline-none focus:border-purple-500"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNsecSetup(false)}
+                  className="flex-1 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 font-medium py-2 px-4 rounded transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !nsecInput.trim() || !passwordInput}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-medium py-2 px-4 rounded transition-colors"
+                >
+                  {loading ? "Setting up..." : "Login"}
+                </button>
+              </div>
+              <p className="text-neutral-500 text-xs mt-2 text-center">
+                Your key will be encrypted and stored locally.
+              </p>
+            </form>
+          </>
+        )}
+
+        {/* Divider before read-only */}
         <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-neutral-600"></div>
@@ -92,6 +298,7 @@ function LoginModal({ open, onClose }: { open: boolean; onClose: () => void }) {
           </div>
         </div>
 
+        {/* Read-only mode */}
         <form onSubmit={handleNpubLogin}>
           <input
             type="text"

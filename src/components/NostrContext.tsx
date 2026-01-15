@@ -1,6 +1,6 @@
 import { EventStore } from "applesauce-core";
 import { RelayPool } from "applesauce-relay";
-import { ExtensionSigner } from "applesauce-signers";
+import { ExtensionSigner, PasswordSigner } from "applesauce-signers";
 import {
   createAddressLoader,
   createEventLoader,
@@ -11,24 +11,32 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import { nip19 } from "nostr-tools";
 import { LOOKUP_RELAYS, DEFAULT_RELAYS } from "@/lib/relays";
 
+const NCRYPTSEC_STORAGE_KEY = "hn-ncryptsec";
+
+type Signer = ExtensionSigner | PasswordSigner;
+
 interface NostrContextValue {
   eventStore: EventStore;
   pool: RelayPool;
-  signer: ExtensionSigner;
+  signer: Signer | null;
   addressLoader: AddressPointerLoader;
   eventLoader: EventPointerLoader;
   pubkey: string | null;
   isReadonly: boolean;
   hasExtension: boolean;
-  login: (method: 'extension' | 'npub', npubOrHex?: string) => Promise<void>;
+  hasStoredKey: boolean;
+  login: (method: 'extension' | 'npub' | 'nsec' | 'password', input?: string, password?: string) => Promise<void>;
   logout: () => void;
+  lock: () => void;
+  clearStoredKey: () => void;
 }
 
 export const NostrContext = createContext<NostrContextValue | null>(null);
 
 const eventStore = new EventStore();
 const pool = new RelayPool();
-const signer = new ExtensionSigner();
+const extensionSigner = new ExtensionSigner();
+const passwordSigner = new PasswordSigner();
 const addressLoader = createAddressLoader(pool, {
   eventStore,
   lookupRelays: LOOKUP_RELAYS,
@@ -40,10 +48,25 @@ const eventLoader = createEventLoader(pool, {
 eventStore.addressableLoader = addressLoader;
 eventStore.replaceableLoader = addressLoader;
 
+// Initialize password signer with stored ncryptsec if available
+if (typeof window !== "undefined") {
+  const stored = localStorage.getItem(NCRYPTSEC_STORAGE_KEY);
+  if (stored) {
+    passwordSigner.ncryptsec = stored;
+  }
+}
+
 export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
   const [pubkey, setPubkey] = useState<string | null>(null);
   const [isReadonly, setIsReadonly] = useState(false);
   const [hasExtension, setHasExtension] = useState(false);
+  const [hasStoredKey, setHasStoredKey] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(NCRYPTSEC_STORAGE_KEY) !== null;
+    }
+    return false;
+  });
+  const [activeSigner, setActiveSigner] = useState<Signer | null>(null);
 
   // Check for extension on mount
   useEffect(() => {
@@ -80,44 +103,99 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const login = useCallback(async (method: 'extension' | 'npub', npubOrHex?: string) => {
+  const login = useCallback(async (method: 'extension' | 'npub' | 'nsec' | 'password', input?: string, password?: string) => {
     if (method === 'extension') {
-      const pk = await signer.getPublicKey();
+      const pk = await extensionSigner.getPublicKey();
       setPubkey(pk);
       setIsReadonly(false);
-      localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: false }));
-    } else if (method === 'npub' && npubOrHex) {
-      let pk = npubOrHex;
-      if (npubOrHex.startsWith("npub")) {
-        const decoded = nip19.decode(npubOrHex);
+      setActiveSigner(extensionSigner);
+      localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: false, method: 'extension' }));
+    } else if (method === 'npub' && input) {
+      let pk = input;
+      if (input.startsWith("npub")) {
+        const decoded = nip19.decode(input);
         if (decoded.type === "npub") {
           pk = decoded.data;
         }
       }
       setPubkey(pk);
       setIsReadonly(true);
-      localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: true }));
+      setActiveSigner(null);
+      localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: true, method: 'npub' }));
+    } else if (method === 'nsec' && input && password) {
+      // Setup new nsec with password encryption
+      let privateKey: Uint8Array;
+      if (input.startsWith("nsec")) {
+        const decoded = nip19.decode(input);
+        if (decoded.type !== "nsec") throw new Error("Invalid nsec");
+        privateKey = decoded.data;
+      } else {
+        // Assume hex format
+        privateKey = new Uint8Array(input.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+      }
+
+      passwordSigner.key = privateKey;
+      await passwordSigner.setPassword(password);
+
+      if (!passwordSigner.ncryptsec) throw new Error("Failed to encrypt key");
+
+      // Store encrypted key
+      localStorage.setItem(NCRYPTSEC_STORAGE_KEY, passwordSigner.ncryptsec);
+      setHasStoredKey(true);
+
+      const pk = await passwordSigner.getPublicKey();
+      setPubkey(pk);
+      setIsReadonly(false);
+      setActiveSigner(passwordSigner);
+      localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: false, method: 'password' }));
+    } else if (method === 'password' && input) {
+      // Unlock existing stored key with password
+      await passwordSigner.unlock(input);
+      const pk = await passwordSigner.getPublicKey();
+      setPubkey(pk);
+      setIsReadonly(false);
+      setActiveSigner(passwordSigner);
+      localStorage.setItem("hn-auth", JSON.stringify({ pubkey: pk, isReadonly: false, method: 'password' }));
     }
   }, []);
 
   const logout = useCallback(() => {
     setPubkey(null);
     setIsReadonly(false);
+    setActiveSigner(null);
+    passwordSigner.lock();
     localStorage.removeItem("hn-auth");
+  }, []);
+
+  const lock = useCallback(() => {
+    passwordSigner.lock();
+    setPubkey(null);
+    setActiveSigner(null);
+    localStorage.removeItem("hn-auth");
+  }, []);
+
+  const clearStoredKey = useCallback(() => {
+    passwordSigner.key = null;
+    passwordSigner.ncryptsec = undefined;
+    localStorage.removeItem(NCRYPTSEC_STORAGE_KEY);
+    setHasStoredKey(false);
   }, []);
 
   const value = useMemo(() => ({
     eventStore,
     pool,
-    signer,
+    signer: activeSigner,
     addressLoader,
     eventLoader,
     pubkey,
     isReadonly,
     hasExtension,
+    hasStoredKey,
     login,
     logout,
-  }), [pubkey, isReadonly, hasExtension, login, logout]);
+    lock,
+    clearStoredKey,
+  }), [pubkey, isReadonly, hasExtension, hasStoredKey, login, logout, lock, clearStoredKey, activeSigner]);
 
   return <NostrContext value={value}>{children}</NostrContext>;
 };
