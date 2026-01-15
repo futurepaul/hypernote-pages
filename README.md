@@ -1,4 +1,4 @@
-# bun-react-tailwind-template
+# Hypernote Pages
 
 To install dependencies:
 
