@@ -29,11 +29,12 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
     return null;
   }, [ast]);
 
-  // Extract bg, bgMode, color, and padding from frontmatter (support both canvas.x and root-level)
+  // Extract bg, bgMode, color, padding, and overflow from frontmatter (support both canvas.x and root-level)
   const bg: string | undefined = frontmatter?.canvas?.bg ?? frontmatter?.bg;
   const bgMode: "cover" | "tile" | "contain" = frontmatter?.canvas?.bgMode ?? frontmatter?.bgMode ?? "cover";
   const color: string | undefined = frontmatter?.canvas?.color ?? frontmatter?.color;
-  const padding: string | undefined = frontmatter?.canvas?.padding ?? frontmatter?.padding;
+  const padding: string | undefined = frontmatter?.canvas?.padding ?? frontmatter?.padding ?? "4"; // Default 1rem
+  const overflow: "auto" | "hidden" | "scroll" | "visible" = frontmatter?.canvas?.overflow ?? frontmatter?.overflow ?? "auto";
 
   // One hook for everything - returns unified scope
   const scope = usePageContext(frontmatter);
@@ -50,15 +51,16 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
 
     // Mode-specific height constraints
     if (mode === "feed") {
-      // Instagram-style: fixed height container, children handle their own scrolling
+      // Instagram-style: fixed height container
       styles.height = "70vh";
-      styles.overflow = "hidden"; // Don't scroll at this level - children scroll
     } else {
       // Full page: take full viewport
       styles.height = "100vh";
       styles.width = "100vw";
-      styles.overflow = "hidden"; // Don't scroll at this level - children scroll
     }
+
+    // Overflow - default to auto, can be overridden via frontmatter
+    styles.overflow = overflow;
 
     // Background
     if (bg) {
@@ -95,13 +97,11 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
       }
     }
 
-    // Padding
-    if (padding) {
-      styles.padding = SPACING_MAP[padding as SpacingValue] ?? padding;
-    }
+    // Padding - always apply (has default of "4" = 1rem)
+    styles.padding = SPACING_MAP[padding as SpacingValue] ?? padding;
 
     return styles;
-  }, [bg, bgMode, color, padding, mode]);
+  }, [bg, bgMode, color, padding, overflow, mode]);
 
   const bgType = bg ? detectBgType(bg) : null;
 

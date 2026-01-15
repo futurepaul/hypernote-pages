@@ -5,6 +5,7 @@ import {
   TEXT_PROPERTIES,
   type PropertyDefinition,
 } from "@/lib/styles";
+import yaml from "yaml";
 
 interface Props {
   ast: AST | null;
@@ -30,6 +31,16 @@ const COMPONENT_PROPERTIES: Record<string, PropertyDefinition[]> = {
   ],
 };
 
+// Canvas/frontmatter properties
+const CANVAS_PROPERTIES: PropertyDefinition[] = [
+  { name: "title", type: "text", default: "Untitled", group: "meta" },
+  { name: "bg", type: "color", default: "neutral-200", group: "appearance" },
+  { name: "bgMode", type: "select", options: ["cover", "contain", "tile"], default: "cover", group: "appearance" },
+  { name: "color", type: "color", default: "neutral-800", group: "appearance" },
+  { name: "padding", type: "select", options: ["0", "1", "2", "3", "4", "6", "8", "12", "16"], default: "4", group: "spacing" },
+  { name: "overflow", type: "select", options: ["auto", "hidden", "scroll", "visible"], default: "auto", group: "layout" },
+];
+
 // Group labels for display
 const GROUP_LABELS: Record<string, string> = {
   layout: "Layout",
@@ -38,6 +49,7 @@ const GROUP_LABELS: Record<string, string> = {
   spacing: "Spacing",
   text: "Text",
   alignment: "Alignment",
+  meta: "Page Info",
 };
 
 export function PropertiesPanel({ ast, cursorOffset, source, onSourceChange }: Props) {
@@ -56,6 +68,9 @@ export function PropertiesPanel({ ast, cursorOffset, source, onSourceChange }: P
     );
   }
 
+  // Check if this is frontmatter
+  const isFrontmatter = node.type === "frontmatter";
+
   // Check if this is a JSX element we can edit
   const isJsxElement = node.type === "mdx_jsx_element" || node.type === "mdx_jsx_self_closing";
   const componentName = isJsxElement && "name" in node ? (node.name as string)?.toLowerCase() : null;
@@ -73,6 +88,14 @@ export function PropertiesPanel({ ast, cursorOffset, source, onSourceChange }: P
         )}
       </div>
 
+      {isFrontmatter && "value" in node && (
+        <FrontmatterEditor
+          frontmatterValue={node.value as string}
+          source={source}
+          onSourceChange={onSourceChange}
+        />
+      )}
+
       {isJsxElement && properties && "attributes" in node && (
         <PropertyEditor
           node={node as JsxNode}
@@ -82,7 +105,7 @@ export function PropertiesPanel({ ast, cursorOffset, source, onSourceChange }: P
         />
       )}
 
-      {!isJsxElement && <NodeProperties node={node} />}
+      {!isJsxElement && !isFrontmatter && <NodeProperties node={node} />}
     </div>
   );
 }
@@ -217,6 +240,87 @@ function PropertyEditor({ node, properties, source, onSourceChange }: PropertyEd
                 key={prop.name}
                 property={prop}
                 value={currentAttrs.get(prop.name)}
+                onChange={(value) => handlePropertyChange(prop.name, value)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface FrontmatterEditorProps {
+  frontmatterValue: string;
+  source: string;
+  onSourceChange: (newSource: string) => void;
+}
+
+function FrontmatterEditor({ frontmatterValue, source, onSourceChange }: FrontmatterEditorProps) {
+  // Parse frontmatter YAML
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = yaml.parse(frontmatterValue) || {};
+  } catch {
+    return <div className="text-red-400 text-xs">Invalid frontmatter YAML</div>;
+  }
+
+  // Get current values
+  const currentValues = new Map<string, string>();
+  for (const prop of CANVAS_PROPERTIES) {
+    const value = parsed[prop.name];
+    if (value !== undefined && value !== null) {
+      currentValues.set(prop.name, String(value));
+    }
+  }
+
+  // Group properties by group
+  const grouped = new Map<string, PropertyDefinition[]>();
+  for (const prop of CANVAS_PROPERTIES) {
+    const group = prop.group;
+    if (!grouped.has(group)) {
+      grouped.set(group, []);
+    }
+    grouped.get(group)!.push(prop);
+  }
+
+  const handlePropertyChange = (propName: string, value: string | null) => {
+    // Update the parsed frontmatter
+    const newParsed = { ...parsed };
+
+    if (value === null || value === "") {
+      delete newParsed[propName];
+    } else {
+      newParsed[propName] = value;
+    }
+
+    // Serialize back to YAML
+    const newYaml = yaml.stringify(newParsed).trim();
+
+    // Find frontmatter in source (between --- markers)
+    const fmMatch = source.match(/^---\n([\s\S]*?)\n---/);
+    if (fmMatch) {
+      const newSource = source.replace(
+        /^---\n[\s\S]*?\n---/,
+        `---\n${newYaml}\n---`
+      );
+      onSourceChange(newSource);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {Array.from(grouped.entries()).map(([group, props]) => (
+        <div key={group}>
+          <div className="text-xs uppercase text-neutral-400 mb-2">
+            {GROUP_LABELS[group] || group}
+          </div>
+          <div className="space-y-2">
+            {props.map((prop) => (
+              <PropertyInput
+                key={prop.name}
+                property={prop}
+                value={currentValues.get(prop.name)}
                 onChange={(value) => handlePropertyChange(prop.name, value)}
               />
             ))}
