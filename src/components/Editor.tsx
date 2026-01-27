@@ -509,7 +509,10 @@ export function Editor() {
           <MarkdownEditor
             value={value}
             onChange={(value) => setValue(value)}
-            onCursorChange={setCursorOffset}
+            onCursorChange={(offset) => {
+              setCursorOffset(offset);
+              setSelectedMedia(null);
+            }}
           />
         </div>
         <div className="flex-1 min-w-0 p-4 flex flex-col items-center gap-4 overflow-hidden">
