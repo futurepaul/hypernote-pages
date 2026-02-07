@@ -1,0 +1,58 @@
+---
+title: Paul's Homepage
+filter:
+  kinds:
+    - 9
+  "#h":
+    - pauls-guestbook
+  limit: 50
+actions:
+  send:
+    kind: 9
+    content: form.message
+    tags:
+      - - h
+        - pauls-guestbook
+    clear: true
+color: white
+bg: https://cdn.satellite.earth/28cdf69ca50e9a15d303e9408e1ee616ada90fcac12cc5db7daef9464adfe453.gif
+bgMode: tile
+overflow: auto
+---
+
+![banner](https://cdn.satellite.earth/0d44d30cc7d9918acfcd1174cb9c41c1f03f11a7899e8a5930009e2ae4a0f993.png)
+
+# Thank you for visiting my home page!
+
+# WANT YOUR OWN GUESTBOOK LIKE THIS? CHECK OUT [hypernote pages](https://hypernote-pages.vercel.app/)
+
+I'm just a normal guy that likes Jesus and bitcoin!
+
+Here are some things you should know about me:
+
+-  [my website](https://paul.lol)
+-  [my podcast](https://creators.spotify.com/pod/profile/futurepaul/)
+-  [I'm famous for this one thing](https://www.youtube.com/watch?v=trVzyG4zFMU)
+
+Well that's all for now hope you have a good day!
+
+[Find Me On The Nostr](nostr:nprofile1qqsq6myr3rwtqjdcm48u357ccwae8h3a4y96s28y7zwg458ngeyg5vcpz4mhxue69uhk2er9dchxummnw3ezumrpdejqzyrhwden5te0xy6rqtnxxaazu6t0qy28wumn8ghj7un9d3shjtnyv9kh2uewd9hszxmhwden5te0vd58y6tnw3cxjmrv9ehx7um5wgcjucm0d5q3gamnwvaz7tmwdaehgu3wdau8gu3wv3jhvqgkwaehxw309ahx7um5wgh8vatvwpjk6tnrdaks6vwetp)
+
+# SAY HI IN THE CHAT
+<HStack gap="2">
+  <Input name="message" placeholder="Type a message..." />
+  <Button action="send">Send</Button>
+</HStack>
+
+<VStack gap="4">
+  <hr></hr>
+  <Each from={queries.events} as="msg">
+    <VStack>
+      <Profile pubkey={msg.pubkey} />
+{msg.content}  
+      <Text size="sm" color="gray-400" align="right" weight="light">{msg.created_at | format_date}</Text>
+    </VStack>
+  </Each>
+</VStack>
+
+

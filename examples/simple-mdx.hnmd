@@ -1,0 +1,28 @@
+---
+title: Simple MDX demo
+---
+
+# Regular markdown headers work
+
+And **text styling**.
+
+And [links!](https://hypernote.club)
+
+Even images:![image alt text](https://cdn.satellite.earth/0d44d30cc7d9918acfcd1174cb9c41c1f03f11a7899e8a5930009e2ae4a0f993.png)
+
+<hstack border="1" borderColor="pink-500" gap="6">
+  <text>this is a hstack</text>
+  <text>so these text items are side by side</text>
+</hstack>
+
+<vstack bg="blue-500">
+  <text>you'll never</text>
+  <text>guess what</text>
+  <text>vstack does</text>
+sometimes markdown works inside of MDX components:
+# even headers
+and images:
+![image alt text](https://cdn.satellite.earth/28cdf69ca50e9a15d303e9408e1ee616ada90fcac12cc5db7daef9464adfe453.gif)
+</vstack>
+
+explore other hypernotes to learn more <text size="2xl" weight="bold">SICK</text> techniques!

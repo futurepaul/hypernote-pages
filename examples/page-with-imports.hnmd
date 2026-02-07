@@ -1,0 +1,19 @@
+---
+title: Page with imports
+imports:
+  TestComponent: naddr1qvzqqqrldqpzqrtvswydevzfhrw5ljxnmrpmhy778k5sh2pguncfezks7dry3z3nqyxhwumn8ghj7mn0wvhxcmmvqy28wumn8ghj7un9d3shjtnyv9kh2uewd9hsqrt5v4ehgcm0d4cx7mn9de6q92j2r9
+---
+
+# This page uses components!
+
+Here's a built-in profile component:
+
+<Profile pubkey="0d6c8388dcb049b8dd4fc8d3d8c3bb93de3da90ba828e4f09c8ad0f346488a33" />
+
+Here's a built-in note component:
+
+<Note id="nevent1qvzqqqqqqypzq8yaek8a95hms7wk7qkke3t2am7hf2t83tjggd9s7r085gv99acyqqsdxwk309v85k8t6u25lmx9v9wupqgqpce6t87r8mmphlec3j9husc0qzn0a" />
+
+Here's an imported component:
+
+<TestComponent message="'this is a message'" />
