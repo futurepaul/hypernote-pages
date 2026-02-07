@@ -5,10 +5,23 @@ import {
   parseAttributes,
   type EvaluationScope,
 } from "../lib/evaluator";
-import type {
-  JsxElementNode,
-  JsxSelfClosingNode,
-} from "zig-mdx/dist/types";
+// These types aren't re-exported from zig-mdx main entry, so define locally
+interface JsxAttribute {
+  name: string;
+  type: "literal" | "expression";
+  value?: string;
+}
+interface JsxElementNode {
+  type: "mdx_jsx_element";
+  name: string;
+  attributes: JsxAttribute[];
+  children: MDXNode[];
+}
+interface JsxSelfClosingNode {
+  type: "mdx_jsx_self_closing";
+  name: string;
+  attributes: JsxAttribute[];
+}
 import { builtinComponents } from "../lib/builtins";
 
 function resolveLink(url: string): string {

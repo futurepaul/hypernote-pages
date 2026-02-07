@@ -15,6 +15,7 @@ export type { ValidationResult, ValidationError, ValidationWarning } from "./val
 export { HypernotePreview } from "./components/HypernotePreview";
 export { NodeRenderer } from "./components/NodeRenderer";
 export { NostrProvider } from "./components/NostrContext";
+export type { NostrProviderProps, NostrContextValue } from "./components/NostrContext";
 export { builtinComponents } from "./lib/builtins";
 
 // Styles

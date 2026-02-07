@@ -1,9 +1,6 @@
 import { useContext, useMemo } from "react";
 import { NostrContext } from "../components/NostrContext";
-import { useObservableMemo } from "./use-observable-memo";
-import { onlyEvents } from "applesauce-relay";
-import { mapEventsToStore } from "applesauce-core/observable";
-import { first } from "rxjs";
+import { use$ } from "applesauce-react/hooks";
 import { nip19 } from "nostr-tools";
 import { DEFAULT_RELAYS } from "../lib/relays";
 
@@ -19,27 +16,21 @@ export function usePage(naddr: string) {
     try {
       const decoded = nip19.decode(naddr);
       if (decoded.type !== "naddr") return null;
-      const { pubkey, identifier, relays } = decoded.data;
-      return { pubkey, identifier, relays: relays?.length ? relays : DEFAULT_RELAYS };
+      return decoded.data;
     } catch {
       return null;
     }
   }, [naddr]);
 
-  return useObservableMemo(
+  return use$(
     () => {
-      if (!parsed) return undefined;
-      return nostr?.pool.relay(parsed.relays[0]!).subscription([{
-        kinds: [32616],
-        limit: 1,
-        "#d": [parsed.identifier],
-        authors: [parsed.pubkey]
-      }]).pipe(
-        onlyEvents(),
-        mapEventsToStore(nostr?.eventStore),
-        first(),
-      );
+      if (!parsed || !nostr?.eventStore) return undefined;
+      return nostr.eventStore.addressable({
+        kind: 32616,
+        pubkey: parsed.pubkey,
+        identifier: parsed.identifier,
+      });
     },
-    [naddr, parsed]
+    [parsed?.pubkey, parsed?.identifier],
   );
 }

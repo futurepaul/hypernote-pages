@@ -3,7 +3,6 @@ import { useNostr } from "../components/NostrContext";
 import { useNostrQuery, type NostrQuery } from "./useNostrQuery";
 import { useComponents } from "./useComponent";
 import { evaluate, type EvaluationScope } from "../lib/evaluator";
-import { DEFAULT_RELAYS } from "../lib/relays";
 
 // Context for builtins to access scope
 const ScopeContext = createContext<EvaluationScope | null>(null);

@@ -13,11 +13,13 @@
     "serve": "bun src/cli.ts serve"
   },
   "dependencies": {
-    "applesauce-core": "^4.2.0",
-    "applesauce-loaders": "^4.2.0",
-    "applesauce-relay": "^4.2.0",
+    "applesauce-core": "^5.1.0",
+    "applesauce-loaders": "^5.1.0",
+    "applesauce-react": "^5.1.0",
+    "applesauce-relay": "^5.1.0",
+    "applesauce-signers": "^5.1.0",
+    "nostr-idb": "^4.0.1",
     "nostr-tools": "^2.17.2",
-    "observable-hooks": "^4.2.4",
     "react": "^19",
     "react-dom": "^19",
     "rxjs": "^7.8.2",
