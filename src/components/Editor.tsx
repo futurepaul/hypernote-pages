@@ -11,10 +11,11 @@ import { slugify } from "@/lib/utils";
 import yaml from "yaml";
 import { usePages, useUserComponents, useBlossomServers, useHypernoteMedia } from "@/hooks/nostr";
 import { uploadBlob, type BlobDescriptor } from "@/hooks/blossom";
+import { saveDraft, loadDraft, deleteDraft, listNewDrafts, hasDraft, type LocalDraft } from "@/hooks/useLocalDraft";
 import type { Event as NostrEvent } from "nostr-tools";
 import { DEFAULT_RELAYS } from "@/lib/relays";
 import { Link } from "wouter";
-import { BookOpenText, Wand2, Upload, FilePlus, ImageUp, FileText, Puzzle, Image, Globe, FileEdit, EyeOff } from "lucide-react";
+import { BookOpenText, Wand2, Upload, FilePlus, ImageUp, FileText, Puzzle, Image, Globe, FileEdit, EyeOff, X } from "lucide-react";
 
 type DocType = "page" | "component";
 
@@ -58,6 +59,17 @@ export function Editor() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<NostrEvent | null>(null);
   const [isUnpublishing, setIsUnpublishing] = useState(false);
+  const [localId, setLocalId] = useState<string | null>(null);
+  const [originalSource, setOriginalSource] = useState<string>(defaultPageValue);
+  const [localDrafts, setLocalDrafts] = useState<LocalDraft[]>([]);
+
+  // Load local drafts on mount
+  useEffect(() => {
+    setLocalDrafts(listNewDrafts());
+  }, []);
+
+  // Calculate dirty state
+  const isDirty = value !== originalSource;
 
   // Parse media events into BlobDescriptor-like objects
   const parseMediaEvent = (event: NostrEvent): BlobDescriptor | null => {
@@ -92,6 +104,38 @@ export function Editor() {
     }
     parse();
   }, [value]);
+
+  // Auto-save effect with debounce
+  useEffect(() => {
+    // Don't save if value matches original (no changes)
+    if (value === originalSource) return;
+
+    const timeout = setTimeout(() => {
+      // Extract display name from frontmatter for local drafts
+      let displayName: string | undefined;
+      try {
+        const fmMatch = value.match(/^---\n([\s\S]*?)\n---/);
+        if (fmMatch && fmMatch[1]) {
+          const meta = yaml.parse(fmMatch[1]);
+          displayName = meta?.title || meta?.name;
+        }
+      } catch {
+        // Ignore parse errors
+      }
+
+      if (selectedId) {
+        // Existing document
+        saveDraft(selectedId, value, docType, false, originalSource, displayName);
+      } else if (localId) {
+        // New document with local ID
+        saveDraft(localId, value, docType, true, originalSource, displayName);
+        // Update local drafts list
+        setLocalDrafts(listNewDrafts());
+      }
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [value, selectedId, localId, docType, originalSource]);
 
   // Show message if not authenticated
   if (!userPubkey) {
@@ -161,6 +205,16 @@ export function Editor() {
       }
 
       const naddr = nip19.naddrEncode({ pubkey: userPubkey, kind: 32616, identifier: d, relays: DEFAULT_RELAYS });
+
+      // Clear draft since we just published
+      if (selectedId) {
+        deleteDraft(selectedId, false);
+      } else if (localId) {
+        deleteDraft(localId, true);
+        setLocalDrafts(listNewDrafts());
+      }
+      setOriginalSource(value); // Reset dirty state
+
       alert(`Published ${docType}: ${naddr}`);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Publish failed");
@@ -169,19 +223,31 @@ export function Editor() {
   };
 
   const handleNewPage = () => {
+    const newLocalId = crypto.randomUUID();
+    setLocalId(newLocalId);
     setDocType("page");
     setValue(defaultPageValue);
+    setOriginalSource(defaultPageValue);
     setSelectedId(null);
     setSelectedEvent(null);
     setSelectedMedia(null);
+    // Save immediately so it appears in the sidebar
+    saveDraft(newLocalId, defaultPageValue, "page", true);
+    setLocalDrafts(listNewDrafts());
   };
 
   const handleNewComponent = () => {
+    const newLocalId = crypto.randomUUID();
+    setLocalId(newLocalId);
     setDocType("component");
     setValue(defaultComponentValue);
+    setOriginalSource(defaultComponentValue);
     setSelectedId(null);
     setSelectedEvent(null);
     setSelectedMedia(null);
+    // Save immediately so it appears in the sidebar
+    saveDraft(newLocalId, defaultComponentValue, "component", true);
+    setLocalDrafts(listNewDrafts());
   };
 
   const handleUnpublish = async () => {
@@ -327,12 +393,55 @@ export function Editor() {
   };
 
   const handleSelectItem = (event: NostrEvent, type: DocType) => {
+    const parsed = parseEvent(event);
+    // Check for existing draft
+    const draft = loadDraft(event.id, false);
+    const sourceToUse = draft?.value ?? parsed.source;
+
     setSelectedId(event.id);
     setSelectedEvent(event);
     setDocType(type);
+    setLocalId(null); // Clear local ID since this is an existing doc
+    setOriginalSource(parsed.source); // Original is from Nostr
+    setValue(sourceToUse); // But use draft if available
     setSelectedMedia(null);
+  };
+
+  const handleSelectLocalDraft = (draft: LocalDraft) => {
+    setSelectedId(null);
+    setSelectedEvent(null);
+    setLocalId(draft.id);
+    setDocType(draft.data.docType);
+    setOriginalSource(draft.data.originalSource ?? draft.data.value);
+    setValue(draft.data.value);
+    setSelectedMedia(null);
+  };
+
+  const handleDeleteLocalDraft = (draftId: string) => {
+    deleteDraft(draftId, true);
+    setLocalDrafts(listNewDrafts());
+    // If the deleted draft was selected, reset to a new page
+    if (localId === draftId) {
+      const newLocalId = crypto.randomUUID();
+      setLocalId(newLocalId);
+      setDocType("page");
+      setValue(defaultPageValue);
+      setOriginalSource(defaultPageValue);
+      setSelectedId(null);
+      setSelectedEvent(null);
+      saveDraft(newLocalId, defaultPageValue, "page", true);
+      setLocalDrafts(listNewDrafts());
+    }
+  };
+
+  const handleDiscardChanges = (eventId: string, event: NostrEvent, type: DocType) => {
+    deleteDraft(eventId, false);
     const parsed = parseEvent(event);
-    setValue(parsed.source);
+    // If this is the currently selected item, reset its value
+    if (selectedId === eventId) {
+      setValue(parsed.source);
+      setOriginalSource(parsed.source);
+    }
   };
 
   function FileList({
@@ -353,6 +462,14 @@ export function Editor() {
     newIcon: React.ComponentType<{ className?: string }>;
   }) {
     const parsed = events.map(parseEvent);
+    // Filter local drafts for this type
+    const draftsForType = localDrafts.filter((d) => d.data.docType === type);
+
+    // Check if an item has unsaved changes (either currently being edited or has a stored draft)
+    const itemIsDirty = (id: string) => {
+      if (selectedId === id) return isDirty;
+      return hasDraft(id, false);
+    };
 
     return (
       <div className="mb-4">
@@ -360,26 +477,71 @@ export function Editor() {
           <Icon className="w-3 h-3" />
           {label}
         </div>
-        {parsed.length === 0 ? (
+        {parsed.length === 0 && draftsForType.length === 0 ? (
           <div className="text-neutral-500 text-sm px-2">None</div>
         ) : (
           <div className="flex flex-col gap-1">
-            {parsed.map((item, i) => (
+            {/* Local drafts (new unsaved documents) */}
+            {draftsForType.map((draft) => (
               <div
-                key={item.id}
-                className={`hover:bg-neutral-600 p-2 rounded-md cursor-pointer ${selectedId === item.id ? "bg-neutral-600" : ""}`}
-                onClick={() => handleSelectItem(events[i]!, type)}
+                key={draft.id}
+                className={`group hover:bg-neutral-600 p-2 rounded-md cursor-pointer ${localId === draft.id ? "bg-neutral-600" : ""}`}
+                onClick={() => handleSelectLocalDraft(draft)}
               >
                 <div className="flex items-center gap-1.5">
-                  {item.status === "published" ? (
-                    <Globe className="w-3 h-3 text-green-400 shrink-0" name="Published" />
-                  ) : (
-                    <FileEdit className="w-3 h-3 text-yellow-400 shrink-0" name="Draft" />
-                  )}
-                  <span className="text-sm truncate">{item.displayName}</span>
+                  <FileEdit className="w-3 h-3 text-orange-400 shrink-0" />
+                  <span className="text-sm truncate flex-1">
+                    {draft.data.displayName || "Untitled"}
+                    <span className="text-orange-400"> *</span>
+                  </span>
+                  <button
+                    className="hidden group-hover:block shrink-0 p-0.5 rounded hover:bg-neutral-500"
+                    title="Delete draft"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteLocalDraft(draft.id);
+                    }}
+                  >
+                    <X className="w-3 h-3 text-neutral-400" />
+                  </button>
                 </div>
               </div>
             ))}
+            {/* Published/draft documents from Nostr */}
+            {parsed.map((item, i) => {
+              const dirty = itemIsDirty(item.id);
+              return (
+                <div
+                  key={item.id}
+                  className={`group hover:bg-neutral-600 p-2 rounded-md cursor-pointer ${selectedId === item.id ? "bg-neutral-600" : ""}`}
+                  onClick={() => handleSelectItem(events[i]!, type)}
+                >
+                  <div className="flex items-center gap-1.5">
+                    {item.status === "published" ? (
+                      <Globe className="w-3 h-3 text-green-400 shrink-0" />
+                    ) : (
+                      <FileEdit className="w-3 h-3 text-yellow-400 shrink-0" />
+                    )}
+                    <span className="text-sm truncate flex-1">
+                      {item.displayName}
+                      {dirty && <span className="text-yellow-400"> *</span>}
+                    </span>
+                    {dirty && (
+                      <button
+                        className="hidden group-hover:block shrink-0 p-0.5 rounded hover:bg-neutral-500"
+                        title="Discard changes"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDiscardChanges(item.id, events[i]!, type);
+                        }}
+                      >
+                        <X className="w-3 h-3 text-neutral-400" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
         <button
@@ -396,13 +558,16 @@ export function Editor() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="bg-neutral-900 text-neutral-200 px-3 py-2 flex justify-between items-center border-b border-neutral-800">
-        <Link
-          href="/"
-          className="p-2 rounded-md hover:bg-neutral-800 transition-colors"
-          title="Home"
-        >
-          <BookOpenText className="w-5 h-5 text-neutral-400" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="p-2 rounded-md hover:bg-neutral-800 transition-colors"
+            title="Home"
+          >
+            <BookOpenText className="w-5 h-5 text-neutral-400" />
+          </Link>
+          {isDirty && <span className="text-yellow-400 text-sm">Unsaved changes</span>}
+        </div>
         <div className="flex items-center gap-1">
           <button
             className="p-2 rounded-md hover:bg-neutral-800 transition-colors"
