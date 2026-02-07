@@ -78,11 +78,13 @@ If your page uses images, upload them with blup first:
 blup upload ./my-image.png
 ```
 
-This prints the URL. Use it in your .hnmd file:
+This prints the URL. Use standard markdown image syntax in your .hnmd file:
 
 ```hnmd
-<Img src="https://blossom.band/abc123.png" width="full" rounded="lg" />
+![my image](https://blossom.band/abc123.png)
 ```
+
+Markdown images work everywhere — standalone or inside layout components. Use the `<Img>` component only when you need fine control over sizing, fit, or rounding (see Components below).
 
 ## File Format
 
@@ -322,6 +324,8 @@ And so does **bold text**, *italics*, and [links](https://example.com).
 
 ## Examples
 
+For more complete examples (homepage with forms, chat rooms, image galleries, imports), see the [examples folder](https://github.com/futurepaul/hn-pages-v3/tree/master/examples).
+
 ### Styled Card
 
 ```hnmd
@@ -384,23 +388,24 @@ padding: "8"
 </VStack>
 ```
 
-### Image Gallery
+### Page with Images
 
 ```hnmd
 ---
-title: Photo Gallery
+title: My Photos
 ---
 
-# My Photos
+# Trip Report
+
+Here's a photo from the hike:
+
+![summit view](https://blossom.band/abc123.png)
+
+And a side-by-side comparison using the Img component for precise control:
 
 <HStack gap="4">
-  <Img src="https://picsum.photos/400/300?1" width="half" rounded="lg" fit="cover" />
-  <Img src="https://picsum.photos/400/300?2" width="half" rounded="lg" fit="cover" />
-</HStack>
-
-<HStack gap="4">
-  <Img src="https://picsum.photos/400/300?3" width="half" rounded="lg" fit="cover" />
-  <Img src="https://picsum.photos/400/300?4" width="half" rounded="lg" fit="cover" />
+  <Img src="https://blossom.band/before.png" width="half" rounded="lg" fit="cover" />
+  <Img src="https://blossom.band/after.png" width="half" rounded="lg" fit="cover" />
 </HStack>
 ```
 
