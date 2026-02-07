@@ -4,7 +4,7 @@ import {
   ZSTACK_PROPERTIES,
   TEXT_PROPERTIES,
   type PropertyDefinition,
-} from "@/lib/styles";
+} from "hypernote-render";
 import yaml from "yaml";
 
 interface Props {

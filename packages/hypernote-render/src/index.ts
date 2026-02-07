@@ -22,6 +22,7 @@ export { builtinComponents } from "./lib/builtins";
 // Styles
 export {
   parseColor,
+  detectBgType,
   resolveContainerStyles,
   resolveTextStyles,
   resolveImgStyles,
@@ -29,7 +30,11 @@ export {
   TEXT_SIZE_MAP,
   WEIGHT_MAP,
   ROUNDED_MAP,
+  CONTAINER_PROPERTIES,
+  ZSTACK_PROPERTIES,
+  TEXT_PROPERTIES,
 } from "./lib/styles";
+export type { PropertyDefinition, SpacingValue } from "./lib/styles";
 
 // Frontmatter
 export {
@@ -45,3 +50,11 @@ export type { FrontmatterKey, BgMode, CanvasOverflow } from "./lib/frontmatter";
 // Evaluator
 export { evaluate, parseAttributes } from "./lib/evaluator";
 export type { EvaluationScope } from "./lib/evaluator";
+
+// Hooks
+export { useNostrQuery } from "./hooks/useNostrQuery";
+export type { NostrQuery } from "./hooks/useNostrQuery";
+export { usePageContext, ScopeProvider, useScope } from "./hooks/usePageContext";
+export { useComponents } from "./hooks/useComponent";
+export { usePage } from "./hooks/nostr";
+export { useNostr } from "./components/NostrContext";

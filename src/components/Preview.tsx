@@ -1,9 +1,7 @@
 import type { AST } from "zig-mdx";
 import yaml from "yaml";
 import { useMemo } from "react";
-import { NodeRenderer } from "@/components/NodeRenderer";
-import { usePageContext, ScopeProvider } from "@/hooks/usePageContext";
-import { parseColor, detectBgType, SPACING_MAP, type SpacingValue } from "@/lib/styles";
+import { HypernotePreview } from "hypernote-render";
 
 interface PreviewProps {
   ast: AST;
@@ -16,7 +14,7 @@ interface PreviewProps {
 }
 
 export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = false }: PreviewProps) {
-  // Parse frontmatter from AST
+  // Parse frontmatter from AST for title display
   const frontmatter = useMemo(() => {
     const fmNode = ast.children.find((child) => child.type === "frontmatter");
     if (fmNode?.value) {
@@ -28,77 +26,6 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
     }
     return null;
   }, [ast]);
-
-  // Extract bg, bgMode, color, padding, and overflow from frontmatter (support both canvas.x and root-level)
-  const bg: string | undefined = frontmatter?.canvas?.bg ?? frontmatter?.bg;
-  const bgMode: "cover" | "tile" | "contain" = frontmatter?.canvas?.bgMode ?? frontmatter?.bgMode ?? "cover";
-  const color: string | undefined = frontmatter?.canvas?.color ?? frontmatter?.color;
-  const padding: string | undefined = frontmatter?.canvas?.padding ?? frontmatter?.padding ?? "4"; // Default 1rem
-  const overflow: "auto" | "hidden" | "scroll" | "visible" = frontmatter?.canvas?.overflow ?? frontmatter?.overflow ?? "auto";
-
-  // One hook for everything - returns unified scope
-  const scope = usePageContext(frontmatter);
-
-  // Resolve canvas styles based on mode
-  const canvasStyles = useMemo(() => {
-    const styles: React.CSSProperties = {
-      position: "relative",
-      // Flex container so children can use grow="1" and overflow="scroll"
-      display: "flex",
-      flexDirection: "column",
-    };
-
-    // Mode-specific height constraints
-    if (mode === "feed") {
-      // Instagram-style: fixed height container
-      styles.height = "70vh";
-    } 
-
-    // Overflow - default to auto, can be overridden via frontmatter
-    styles.overflow = overflow;
-
-    // Background
-    if (bg) {
-      const bgType = detectBgType(bg);
-      if (bgType === "color") {
-        const bgColor = parseColor(bg);
-        if (bgColor) {
-          styles.backgroundColor = bgColor;
-        }
-      } else if (bgType === "image") {
-        styles.backgroundImage = `url(${bg})`;
-        if (bgMode === "tile") {
-          styles.backgroundRepeat = "repeat";
-          styles.backgroundSize = "auto";
-        } else if (bgMode === "contain") {
-          styles.backgroundSize = "contain";
-          styles.backgroundPosition = "center";
-          styles.backgroundRepeat = "no-repeat";
-        } else {
-          // cover (default)
-          styles.backgroundSize = "cover";
-          styles.backgroundPosition = "center";
-          styles.backgroundRepeat = "no-repeat";
-        }
-      }
-      // Video backgrounds are still handled in JSX below
-    }
-
-    // Text color
-    if (color) {
-      const textColor = parseColor(color);
-      if (textColor) {
-        styles.color = textColor;
-      }
-    }
-
-    // Padding - always apply (has default of "4" = 1rem)
-    styles.padding = SPACING_MAP[padding as SpacingValue] ?? padding;
-
-    return styles;
-  }, [bg, bgMode, color, padding, overflow, mode]);
-
-  const bgType = bg ? detectBgType(bg) : null;
 
   return (
     <div className="border rounded-sm shadow-2xl bg-neutral-200 text-neutral-800 overflow-hidden max-w-full">
@@ -115,48 +42,9 @@ export function Preview({ ast, naddr, parseError, mode = "feed", hideTitle = fal
 
       {parseError && <div className="text-red-500 p-2">{parseError}</div>}
 
-      {/* Canvas wrapper with background */}
-      <div style={canvasStyles}>
-        {/* Background video (images now handled via CSS background) */}
-        {bgType === "video" && bg && (
-          <video
-            src={bg}
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              zIndex: 0,
-            }}
-          />
-        )}
-
-        {/* Content layer - flex child that fills available space */}
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            display: "flex",
-            flexDirection: "column",
-            flexGrow: 1,
-            minHeight: 0, // Critical: allows flex child to shrink below content size
-          }}
-          className="wrap-break-words"
-        >
-          <ScopeProvider value={scope}>
-            <NodeRenderer
-              node={{ type: "root", children: ast.children }}
-              key="root"
-              keyName="root"
-              scope={scope}
-            />
-          </ScopeProvider>
-        </div>
+      {/* Canvas wrapper with mode-specific height */}
+      <div style={mode === "feed" ? { height: "70vh", overflow: "hidden" } : undefined}>
+        <HypernotePreview ast={ast} />
       </div>
     </div>
   );

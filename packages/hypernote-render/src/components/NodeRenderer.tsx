@@ -105,8 +105,15 @@ export function NodeRenderer({
     case "hard_break":
       return <br />;
 
-    case "paragraph":
-      return <p style={{ marginBottom: "1rem" }}>{renderChildren(node.children, key, scope)}</p>;
+    case "paragraph": {
+      // Use <div> instead of <p> when children contain block-level elements (JSX components)
+      // to avoid invalid HTML nesting like <p><div>...</div></p>
+      const hasBlockChildren = node.children.some(
+        (c) => c.type === "mdx_jsx_element" || c.type === "mdx_jsx_self_closing" || c.type === "mdx_flow_expression"
+      );
+      const Tag = hasBlockChildren ? "div" : "p";
+      return <Tag style={{ marginBottom: "1rem" }}>{renderChildren(node.children, key, scope)}</Tag>;
+    }
     case "text":
       return <span>{node.value}</span>;
     case "list_ordered":
@@ -211,7 +218,7 @@ function renderJsxElement(
             [asName]: item,
             index: itemIndex,
           };
-          return <EachItem key={itemKey} node={node} itemScope={itemScope} />;
+          return <EachItem key={itemKey} keyName={String(itemKey)} node={node} itemScope={itemScope} />;
         })}
       </>
     );
@@ -243,16 +250,16 @@ function renderJsxElement(
 const EachItem = memo(
   ({
     node,
-    key,
+    keyName,
     itemScope,
   }: {
     node: JsxElementNode;
-    key: string;
+    keyName: string;
     itemScope: EvaluationScope;
   }) => {
     return (
       <div>
-        {renderChildren((node as any).children, key, itemScope)}
+        {renderChildren((node as any).children, keyName, itemScope)}
       </div>
     );
   },

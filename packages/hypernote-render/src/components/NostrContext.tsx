@@ -64,13 +64,10 @@ export function NostrProvider({
   const eventStore = useMemo(() => externalStore ?? new EventStore(), [externalStore]);
   const pool = useMemo(() => externalPool ?? new RelayPool(), [externalPool]);
 
-  // Track whether we own the instances (so we set up loader + caching)
-  const ownsInstances = !externalStore;
-
-  // Wire up unified loader + nostr-idb caching (only if we own the store)
+  // Wire up unified loader + nostr-idb caching
   const loaderReady = useRef(false);
   useEffect(() => {
-    if (!ownsInstances || loaderReady.current) return;
+    if (loaderReady.current) return;
     loaderReady.current = true;
 
     let cleanup: (() => void) | undefined;
@@ -115,7 +112,7 @@ export function NostrProvider({
     return () => {
       cleanup?.();
     };
-  }, [ownsInstances, eventStore, pool, relays, lookupRelays, disableCache]);
+  }, [eventStore, pool, relays, lookupRelays, disableCache]);
 
   // Signer state: external signer takes precedence, otherwise internal
   const [internalSigner, setInternalSigner] = useState<EventSigner | null>(null);

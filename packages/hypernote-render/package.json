@@ -16,18 +16,8 @@
     "test:all": "bun test tests/check.test.ts && bunx playwright test"
   },
   "dependencies": {
-    "applesauce-core": "^5.1.0",
     "applesauce-loaders": "^5.1.0",
-    "applesauce-react": "^5.1.0",
-    "applesauce-relay": "^5.1.0",
-    "applesauce-signers": "^5.1.0",
-    "nostr-idb": "^4.0.1",
-    "nostr-tools": "^2.17.2",
-    "react": "^19",
-    "react-dom": "^19",
-    "rxjs": "^7.8.2",
-    "yaml": "^2.8.1",
-    "zig-mdx": "^0.2.8"
+    "nostr-idb": "^4.0.1"
   },
   "devDependencies": {
     "@types/react": "^19",
@@ -36,7 +26,15 @@
     "playwright": "^1.52.0"
   },
   "peerDependencies": {
+    "applesauce-core": "^5.1.0",
+    "applesauce-react": "^5.1.0",
+    "applesauce-relay": "^5.1.0",
+    "applesauce-signers": "^5.1.0",
+    "nostr-tools": "^2.17.2",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "rxjs": "^7.8.2",
+    "yaml": "^2.8.1",
+    "zig-mdx": "^0.2.8"
   }
 }

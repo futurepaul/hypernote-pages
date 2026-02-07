@@ -39,7 +39,7 @@ export function HypernotePreview({ ast }: HypernotePreviewProps) {
       position: "relative",
       display: "flex",
       flexDirection: "column",
-      minHeight: "100vh",
+      height: "100%",
       overflow,
     };
 
