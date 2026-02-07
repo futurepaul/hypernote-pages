@@ -154,7 +154,7 @@ export function Editor() {
       alert("Login with a signer to publish");
       return;
     }
-    if (!signer || needsUnlock) {
+    if (!nostr.factory || needsUnlock) {
       alert("Please unlock your signer first (click the lock icon)");
       return;
     }
@@ -192,7 +192,7 @@ export function Editor() {
         tags,
         created_at: Math.floor(Date.now() / 1000),
       };
-      const res = await signer!.signEvent(eventTemplate);
+      const res = await nostr.factory.sign(eventTemplate);
 
       const verified = validateEvent(res);
       if (!verified) {
@@ -256,7 +256,7 @@ export function Editor() {
       alert("Login with a signer to unpublish");
       return;
     }
-    if (!signer || needsUnlock) {
+    if (!nostr.factory || needsUnlock) {
       alert("Please unlock your signer first (click the lock icon)");
       return;
     }
@@ -283,7 +283,7 @@ export function Editor() {
         created_at: Math.floor(Date.now() / 1000),
       };
 
-      const signed = await signer!.signEvent(eventTemplate);
+      const signed = await nostr.factory.sign(eventTemplate);
       if (!validateEvent(signed)) {
         throw new Error("Failed to verify event");
       }
@@ -304,7 +304,7 @@ export function Editor() {
       alert("Login with a signer to upload");
       return;
     }
-    if (!signer || needsUnlock) {
+    if (!signer || !nostr.factory || needsUnlock) {
       alert("Please unlock your signer first (click the lock icon)");
       return;
     }
@@ -344,7 +344,7 @@ export function Editor() {
             ["t", `hypernote-v${version}`],
           ],
         };
-        const signedEvent = await signer!.signEvent(mediaEvent);
+        const signedEvent = await nostr.factory!.sign(mediaEvent);
         await nostr.pool.publish(DEFAULT_RELAYS, signedEvent);
 
         setSelectedMedia(blob);

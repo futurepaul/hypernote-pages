@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useMemo, createContext, useContext } from "react";
-import { useNostr } from "@/components/NostrContext";
-import { useNostrQuery, type NostrQuery } from "@/hooks/useNostrQuery";
-import { useComponents } from "@/hooks/useComponent";
-import { evaluate, type EvaluationScope } from "@/lib/evaluator";
-import { DEFAULT_RELAYS } from "@/lib/relays";
+import { useNostr } from "../components/NostrContext";
+import { useNostrQuery, type NostrQuery } from "./useNostrQuery";
+import { useComponents } from "./useComponent";
+import { evaluate, type EvaluationScope } from "../lib/evaluator";
+import { DEFAULT_RELAYS } from "../lib/relays";
 
 // Context for builtins to access scope
 const ScopeContext = createContext<EvaluationScope | null>(null);
@@ -74,7 +74,6 @@ export function usePageContext(frontmatter: Record<string, any> | null): Evaluat
     const hasQueries = queries && Object.values(queries).some(v => v !== undefined);
     if (!hasQueries) return;
 
-    // Build a minimal scope for evaluation
     const evalScope = { queries, state: frontmatter, form, updateForm, executeAction: async () => {}, isPublishing: false } as EvaluationScope;
 
     const resolved: Record<string, string> = {};
@@ -97,7 +96,7 @@ export function usePageContext(frontmatter: Record<string, any> | null): Evaluat
     }
   }, [queries, frontmatter?.form]);
 
-  // Execute an action (uses current form/queries directly, not scope)
+  // Execute an action — builds event from action def, signs with EventFactory, publishes
   const executeAction = useCallback(async (actionName: string) => {
     const actionDef = frontmatter?.actions?.[actionName];
     if (!actionDef) {
@@ -105,108 +104,106 @@ export function usePageContext(frontmatter: Record<string, any> | null): Evaluat
       return;
     }
 
+    // If readonly, request login instead
     if (nostr.isReadonly) {
-      alert("Login with extension to publish");
+      nostr.requestLogin();
+      return;
+    }
+
+    if (!nostr.factory) {
+      console.warn("No EventFactory available");
       return;
     }
 
     setIsPublishing(true);
     try {
-      // Build scope for resolving values
-      const evalScope = { queries, state: frontmatter, form, user: nostr.pubkey, updateForm, executeAction: async () => {}, isPublishing: true } as EvaluationScope;
+      // Build the evaluation scope for interpolating templates
+      const evalScope: EvaluationScope = {
+        props: {},
+        queries,
+        state: frontmatter ?? {},
+        form,
+        user: nostr.pubkey ?? undefined,
+        components,
+        updateForm,
+        executeAction: async () => {},
+        isPublishing: true,
+      };
 
-      const kind = typeof actionDef.kind === "number" ? actionDef.kind : parseInt(actionDef.kind, 10);
-      let content = resolveValue(actionDef.content, evalScope);
+      // Resolve kind
+      const kind = typeof actionDef.kind === "number"
+        ? actionDef.kind
+        : typeof actionDef.kind === "string"
+          ? Number(evaluate(actionDef.kind, evalScope) ?? actionDef.kind)
+          : 1;
 
-      // Handle base merging
-      if (actionDef.base) {
-        const baseResult = evaluate(actionDef.base, evalScope);
-        let baseObj: Record<string, any> = {};
-        if (typeof baseResult === "string") {
-          try { baseObj = JSON.parse(baseResult); } catch {}
-        } else if (typeof baseResult === "object" && baseResult) {
-          baseObj = baseResult;
-        }
-
-        let contentObj: Record<string, any> = {};
-        if (typeof content === "string" && content.trim().startsWith("{")) {
-          try { contentObj = JSON.parse(content); } catch {}
-        } else if (typeof content === "object" && content) {
-          contentObj = content;
-        }
-
-        const merged = { ...baseObj, ...contentObj };
-        for (const k of Object.keys(merged)) {
-          if (merged[k] === "") delete merged[k];
-        }
-        content = JSON.stringify(merged);
-      } else if (typeof content === "object") {
-        content = JSON.stringify(content);
+      // Resolve content
+      let content = "";
+      if (typeof actionDef.content === "string") {
+        content = String(evaluate(actionDef.content, evalScope) ?? actionDef.content);
       }
 
       // Resolve tags
       const tags: string[][] = [];
-      if (actionDef.tags) {
-        for (const tag of actionDef.tags) {
-          tags.push(tag.map((v: any) => String(resolveValue(v, evalScope))));
+      if (Array.isArray(actionDef.tags)) {
+        for (const tagDef of actionDef.tags) {
+          if (!Array.isArray(tagDef)) continue;
+          const resolvedTag = tagDef.map((part: any) => {
+            if (typeof part === "string") {
+              return String(evaluate(part, evalScope) ?? part);
+            }
+            return String(part);
+          });
+          tags.push(resolvedTag);
         }
       }
 
-      const eventTemplate = {
+      // Build the event template
+      const template = {
         kind,
-        content: String(content),
+        content,
         tags,
         created_at: Math.floor(Date.now() / 1000),
       };
 
-      const signed = await nostr.signer.signEvent(eventTemplate);
-      const published = await nostr.pool.publish(DEFAULT_RELAYS, signed);
+      // Sign with EventFactory (works with any signer type)
+      const signed = await nostr.factory.sign(template);
 
-      if (published.length === 0) {
-        throw new Error("Failed to publish to any relay");
+      // Publish to relays
+      const relays = actionDef.relays ?? DEFAULT_RELAYS;
+      for (const relay of relays) {
+        try {
+          nostr.pool.relay(relay).publish(signed);
+        } catch (e) {
+          console.warn(`Failed to publish to ${relay}:`, e);
+        }
       }
 
-      if (actionDef.clear) {
+      // Add to local event store so it appears immediately
+      nostr.eventStore.add(signed);
+
+      // Clear form after successful publish
+      if (actionDef.clearForm !== false) {
         setForm({});
       }
-    } catch (error) {
-      console.error("Action failed:", error);
-      alert(error instanceof Error ? error.message : "Action failed");
+    } catch (e) {
+      console.error(`Action "${actionName}" failed:`, e);
     } finally {
       setIsPublishing(false);
     }
-  }, [frontmatter, queries, form, nostr]);
+  }, [frontmatter, nostr, queries, form, components, updateForm]);
 
-  // Return unified scope with everything
   return useMemo<EvaluationScope>(() => ({
     props: {},
     queries,
     state: frontmatter ?? {},
     form,
-    user: nostr.pubkey ?? undefined,
+    user: nostr?.pubkey ?? undefined,
     item: undefined,
     index: 0,
     components,
     updateForm,
     executeAction,
     isPublishing,
-  }), [queries, frontmatter, form, nostr.pubkey, components, updateForm, executeAction, isPublishing]);
-}
-
-/** Resolve action values - handles form.x, state.x, queries.x, objects, special values */
-function resolveValue(value: any, scope: EvaluationScope): any {
-  if (typeof value === "object" && value !== null) {
-    const resolved: Record<string, any> = {};
-    for (const [k, v] of Object.entries(value)) {
-      resolved[k] = resolveValue(v, scope);
-    }
-    return resolved;
-  }
-  if (typeof value !== "string") return value;
-  if (value === "now") return Math.floor(Date.now() / 1000);
-  if (value === "user" || value === "user.pubkey") return scope.user;
-  if (value.startsWith("form.") || value.startsWith("state.") || value.startsWith("queries.")) {
-    return evaluate(value, scope);
-  }
-  return value;
+  }), [queries, frontmatter, form, nostr?.pubkey, components, updateForm, executeAction, isPublishing]);
 }

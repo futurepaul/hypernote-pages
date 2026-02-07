@@ -1,27 +1,17 @@
 import { EventStore } from "applesauce-core";
+import type { EventFactory } from "applesauce-core";
 import { RelayPool } from "applesauce-relay";
-import { ExtensionSigner, PasswordSigner } from "applesauce-signers";
-import {
-  createAddressLoader,
-  createEventLoader,
-  type AddressPointerLoader,
-  type EventPointerLoader,
-} from "applesauce-loaders/loaders";
+import { ExtensionSigner, PasswordSigner } from "applesauce-signers/signers";
+import { NostrProvider as RenderProvider, useNostr as useRenderNostr } from "hypernote-render";
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { nip19 } from "nostr-tools";
-import { LOOKUP_RELAYS, DEFAULT_RELAYS } from "@/lib/relays";
 
 const NCRYPTSEC_STORAGE_KEY = "hn-ncryptsec";
 
 type Signer = ExtensionSigner | PasswordSigner;
 type LoginMethod = 'extension' | 'npub' | 'nsec' | 'password' | null;
 
-interface NostrContextValue {
-  eventStore: EventStore;
-  pool: RelayPool;
-  signer: Signer | null;
-  addressLoader: AddressPointerLoader;
-  eventLoader: EventPointerLoader;
+interface AppAuthContextValue {
   pubkey: string | null;
   isReadonly: boolean;
   hasExtension: boolean;
@@ -35,22 +25,20 @@ interface NostrContextValue {
   unlockSigner: (password: string) => Promise<void>;
 }
 
-export const NostrContext = createContext<NostrContextValue | null>(null);
+/** Combined context value: render-package Nostr values + app-specific auth values */
+export interface NostrContextValue extends AppAuthContextValue {
+  eventStore: EventStore;
+  pool: RelayPool;
+  signer: Signer | null;
+  factory: EventFactory | null;
+}
+
+const AppAuthContext = createContext<AppAuthContextValue | null>(null);
 
 const eventStore = new EventStore();
 const pool = new RelayPool();
 const extensionSigner = new ExtensionSigner();
 const passwordSigner = new PasswordSigner();
-const addressLoader = createAddressLoader(pool, {
-  eventStore,
-  lookupRelays: LOOKUP_RELAYS,
-});
-const eventLoader = createEventLoader(pool, {
-  eventStore,
-  extraRelays: DEFAULT_RELAYS,
-});
-eventStore.addressableLoader = addressLoader;
-eventStore.replaceableLoader = addressLoader;
 
 // Initialize password signer with stored ncryptsec if available
 if (typeof window !== "undefined") {
@@ -214,12 +202,7 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
     setHasStoredKey(false);
   }, []);
 
-  const value = useMemo(() => ({
-    eventStore,
-    pool,
-    signer: activeSigner,
-    addressLoader,
-    eventLoader,
+  const authValue = useMemo<AppAuthContextValue>(() => ({
     pubkey,
     isReadonly,
     hasExtension,
@@ -231,15 +214,28 @@ export const NostrProvider = ({ children }: { children: React.ReactNode }) => {
     lock,
     clearStoredKey,
     unlockSigner,
-  }), [pubkey, isReadonly, hasExtension, hasStoredKey, needsUnlock, loginMethod, login, logout, lock, clearStoredKey, unlockSigner, activeSigner]);
+  }), [pubkey, isReadonly, hasExtension, hasStoredKey, needsUnlock, loginMethod, login, logout, lock, clearStoredKey, unlockSigner]);
 
-  return <NostrContext value={value}>{children}</NostrContext>;
+  return (
+    <RenderProvider eventStore={eventStore} pool={pool} signer={activeSigner}>
+      <AppAuthContext value={authValue}>
+        {children}
+      </AppAuthContext>
+    </RenderProvider>
+  );
 };
 
-export const useNostr = () => {
-  const nostr = useContext(NostrContext);
-  if (!nostr) {
+export const useNostr = (): NostrContextValue => {
+  const auth = useContext(AppAuthContext);
+  if (!auth) {
     throw new Error("useNostr must be used within a NostrProvider");
   }
-  return nostr;
+  const render = useRenderNostr();
+  return useMemo(() => ({
+    ...auth,
+    eventStore: render.eventStore,
+    pool: render.pool,
+    signer: auth.isReadonly ? null : (render.signer as Signer | null),
+    factory: render.factory,
+  }), [auth, render]);
 };

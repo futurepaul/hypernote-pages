@@ -1,0 +1,34 @@
+---
+title: Test Chat Room
+filter:
+  kinds:
+    - 9
+  "#h":
+    - test-room-123
+  limit: 50
+actions:
+  send:
+    kind: 9
+    content: form.message
+    tags:
+      - - h
+        - test-room-123
+    clear: true
+aspect: portrait
+padding: "0"
+---
+
+<VStack gap="4" overflow="auto" padding="4">
+  <Each from={queries.events} as="msg">
+    <VStack>
+      <Profile pubkey={msg.pubkey} />
+{msg.content}  
+      <Text size="sm" color="gray-600" align="right" weight="light">{msg.created_at | format_date}</Text>
+    </VStack>
+  </Each>
+</VStack>
+
+<HStack padding="4">
+  <Input name="message" placeholder="Type a message..." />
+  <Button action="send">Send</Button>
+</HStack>

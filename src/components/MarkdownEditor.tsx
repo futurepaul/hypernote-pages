@@ -41,6 +41,10 @@ export function MarkdownEditor({ value, onChange, onCursorChange }: Props) {
       editorRef.current = instance;
 
       // Track cursor position
+      if (!instance) {
+        console.error('Failed to initialize OverType editor');
+        return;
+      }
       const textarea = instance.textarea;
       const handleCursor = () => {
         onCursorChange?.(textarea.selectionStart);

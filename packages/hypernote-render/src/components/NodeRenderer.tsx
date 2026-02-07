@@ -1,23 +1,34 @@
-import type { AST, Node as MDXNode } from "zig-mdx";
+import type { Node as MDXNode } from "zig-mdx";
 import { memo } from "react";
 import {
   evaluate,
   parseAttributes,
   type EvaluationScope,
-} from "@/lib/evaluator";
-import type {
-  JsxElementNode,
-  JsxSelfClosingNode,
-} from "node_modules/zig-mdx/dist/types";
-import { builtinComponents } from "@/lib/builtins";
+} from "../lib/evaluator";
+// These types aren't re-exported from zig-mdx main entry, so define locally
+interface JsxAttribute {
+  name: string;
+  type: "literal" | "expression";
+  value?: string;
+}
+interface JsxElementNode {
+  type: "mdx_jsx_element";
+  name: string;
+  attributes: JsxAttribute[];
+  children: MDXNode[];
+}
+interface JsxSelfClosingNode {
+  type: "mdx_jsx_self_closing";
+  name: string;
+  attributes: JsxAttribute[];
+}
+import { builtinComponents } from "../lib/builtins";
 
 function resolveLink(url: string): string {
   if (url.startsWith("nostr:")) {
-    // nostr:npub1... -> njump.me/npub1...
     return `https://njump.me/${url.slice(6)}`;
   }
   if (url.startsWith("hn:")) {
-    // hn:naddr1... -> /hn/naddr1...
     return `/hn/${url.slice(3)}`;
   }
   return url;
@@ -54,37 +65,37 @@ export function NodeRenderer({
     case "heading":
       if (node.level === 1) {
         return (
-          <h1 className="text-2xl font-bold mb-4">
+          <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", marginBottom: "1rem" }}>
             {renderChildren(node.children, key, scope)}
           </h1>
         );
       } else if (node.level === 2) {
         return (
-          <h2 className="text-xl font-bold mb-4">
+          <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "1rem" }}>
             {renderChildren(node.children, key, scope)}
           </h2>
         );
       } else if (node.level === 3) {
         return (
-          <h3 className="text-lg font-bold mb-4">
+          <h3 style={{ fontSize: "1.125rem", fontWeight: "bold", marginBottom: "1rem" }}>
             {renderChildren(node.children, key, scope)}
           </h3>
         );
       } else if (node.level === 4) {
         return (
-          <h4 className="text-base font-bold mb-4">
+          <h4 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "1rem" }}>
             {renderChildren(node.children, key, scope)}
           </h4>
         );
       } else if (node.level === 5) {
         return (
-          <h5 className="text-sm font-bold mb-4">
+          <h5 style={{ fontSize: "0.875rem", fontWeight: "bold", marginBottom: "1rem" }}>
             {renderChildren(node.children, key, scope)}
           </h5>
         );
       } else if (node.level === 6) {
         return (
-          <h6 className="text-xs font-bold mb-4">
+          <h6 style={{ fontSize: "0.75rem", fontWeight: "bold", marginBottom: "1rem" }}>
             {renderChildren(node.children, key, scope)}
           </h6>
         );
@@ -92,27 +103,34 @@ export function NodeRenderer({
       return <div>Unknown heading level: {node.level}</div>;
 
     case "hard_break":
-      return <br className="mb-4" />;
+      return <br />;
 
-    case "paragraph":
-      return <p className="mb-4">{renderChildren(node.children, key, scope)}</p>;
+    case "paragraph": {
+      // Use <div> instead of <p> when children contain block-level elements (JSX components)
+      // to avoid invalid HTML nesting like <p><div>...</div></p>
+      const hasBlockChildren = node.children.some(
+        (c) => c.type === "mdx_jsx_element" || c.type === "mdx_jsx_self_closing" || c.type === "mdx_flow_expression"
+      );
+      const Tag = hasBlockChildren ? "div" : "p";
+      return <Tag style={{ marginBottom: "1rem" }}>{renderChildren(node.children, key, scope)}</Tag>;
+    }
     case "text":
       return <span>{node.value}</span>;
     case "list_ordered":
       return (
-        <ol className="list-decimal mb-4">
+        <ol style={{ listStyleType: "decimal", marginBottom: "1rem" }}>
           {renderChildren(node.children, key, scope)}
         </ol>
       );
     case "list_unordered":
       return (
-        <ul className="list-disc mb-4">
+        <ul style={{ listStyleType: "disc", marginBottom: "1rem" }}>
           {renderChildren(node.children, key, scope)}
         </ul>
       );
     case "list_item":
       return (
-        <li className="ml-4">{renderChildren(node.children, key, scope)}</li>
+        <li style={{ marginLeft: "1rem" }}>{renderChildren(node.children, key, scope)}</li>
       );
     case "link":
       return <a href={resolveLink(node.url)}>{renderChildren(node.children, key, scope)}</a>;
@@ -121,7 +139,7 @@ export function NodeRenderer({
       const altText = node.children
         .map((child) => (child.type === "text" ? child.value : ""))
         .join(" ");
-      return <img className="w-full" src={node.url} alt={altText} />;
+      return <img style={{ width: "100%" }} src={node.url} alt={altText} />;
 
     case "strong":
       return <strong>{renderChildren(node.children, key, scope)}</strong>;
@@ -136,25 +154,21 @@ export function NodeRenderer({
         </pre>
       );
     case "hr":
-      return <hr className="mb-4" />;
+      return <hr style={{ marginBottom: "1rem" }} />;
     case "blockquote":
       return (
-        <blockquote className="border-l border-neutral-500 pl-2">
+        <blockquote style={{ borderLeft: "2px solid #6b7280", paddingLeft: "0.5rem" }}>
           {renderChildren(node.children, key, scope)}
         </blockquote>
       );
     case "frontmatter":
-      // Don't render frontmatter
       return null;
-    // MDX STUFF!!!
     case "mdx_text_expression": {
-      // Inline expression like {value}
       const result = evaluate(node.value, scope);
       return <>{String(result ?? "")}</>;
     }
 
     case "mdx_flow_expression": {
-      // Block-level expression
       const result = evaluate(node.value, scope);
       return <>{String(result ?? "")}</>;
     }
@@ -167,7 +181,6 @@ export function NodeRenderer({
       return <>{renderChildren(node.children, key, scope)}</>;
 
     default:
-      // Unknown node type... typescript thinks it's a "never"
       const nodeType = (node as any).type;
       return <div>Unknown node type: {nodeType}</div>;
   }
@@ -184,7 +197,6 @@ function renderJsxElement(
     ? renderChildren(node.children, key, scope)
     : null;
 
-  // Each is special - needs scope manipulation
   if (componentName.toLowerCase() === "each") {
     const fromArray = attrs.from;
     const asName = attrs.as;
@@ -206,13 +218,12 @@ function renderJsxElement(
             [asName]: item,
             index: itemIndex,
           };
-          return <EachItem key={itemKey} node={node} itemScope={itemScope} />;
+          return <EachItem key={itemKey} keyName={String(itemKey)} node={node} itemScope={itemScope} />;
         })}
       </>
     );
   }
 
-  // Check built-in components (case-insensitive lookup)
   const builtinKey = Object.keys(builtinComponents).find(
     (k) => k.toLowerCase() === componentName.toLowerCase()
   );
@@ -221,10 +232,8 @@ function renderJsxElement(
     return <BuiltinComponent {...attrs}>{children}</BuiltinComponent>;
   }
 
-  // Check imported components from scope
   if (scope.components?.[componentName]) {
     const importedAst = scope.components[componentName];
-    // Render imported component with props passed via scope
     return (
       <NodeRenderer
         node={importedAst}
@@ -234,35 +243,27 @@ function renderJsxElement(
     );
   }
 
-  // Unknown component
   console.warn(`Unknown JSX component: ${componentName}`);
-  return <div className="unknown-component">{children}</div>;
+  return <div>{children}</div>;
 }
 
-/**
- * Memoized component for each item in a list
- * Prevents re-rendering when other items change
- */
 const EachItem = memo(
   ({
     node,
-    key,
+    keyName,
     itemScope,
   }: {
     node: JsxElementNode;
-    key: string;
+    keyName: string;
     itemScope: EvaluationScope;
   }) => {
     return (
-      <div className="each-item">
-        {renderChildren((node as any).children, key, itemScope)}
+      <div>
+        {renderChildren((node as any).children, keyName, itemScope)}
       </div>
     );
   },
   (prev, next) => {
-    // Custom comparison - only re-render if the item itself changed
-    // Compare the item by reference (nostr events are stable objects)
-    // TODO: is this right? should we use ID? or key?
     return prev.itemScope.item === next.itemScope.item;
   }
 );
@@ -275,7 +276,6 @@ function renderJsxSelfClosing(
   const componentName = node.name.trim();
   const attrs = parseAttributes(node.attributes || [], scope);
 
-  // Check built-in components (case-insensitive lookup)
   const builtinKey = Object.keys(builtinComponents).find(
     (k) => k.toLowerCase() === componentName.toLowerCase()
   );
@@ -284,7 +284,6 @@ function renderJsxSelfClosing(
     return <BuiltinComponent {...attrs} />;
   }
 
-  // Check imported components from scope
   if (scope.components?.[componentName]) {
     const importedAst = scope.components[componentName];
     return (

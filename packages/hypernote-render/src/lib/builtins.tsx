@@ -5,9 +5,9 @@
 
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import { useNostrQuery } from "@/hooks/useNostrQuery";
-import { parsePubkey, parseEventId } from "@/lib/nip19";
-import { useScope } from "@/hooks/usePageContext";
+import { useNostrQuery } from "../hooks/useNostrQuery";
+import { parsePubkey, parseEventId } from "./nip19";
+import { useScope } from "../hooks/usePageContext";
 import {
   type ContainerStyleProps,
   type ZStackStyleProps,
@@ -17,7 +17,7 @@ import {
   resolveZStackAlignment,
   resolveTextStyles,
   resolveImgStyles,
-} from "@/lib/styles";
+} from "./styles";
 
 // =============================================================================
 // LAYOUT COMPONENTS (no data fetching)
@@ -65,12 +65,6 @@ export function VStack(props: StackProps) {
   );
 }
 
-/**
- * ZStack - SwiftUI-style layered stack
- * All children are stacked on top of each other in a CSS Grid.
- * The stack sizes to fit the largest child.
- * Children are aligned according to the `align` prop (default: center).
- */
 export function ZStack(props: ZStackProps) {
   const { children, align, ...styleProps } = props;
   const containerStyles = resolveContainerStyles(styleProps);
@@ -80,14 +74,12 @@ export function ZStack(props: ZStackProps) {
     <div
       style={{
         display: "grid",
-        // All children go in the same grid cell (1/1)
         gridTemplateColumns: "1fr",
         gridTemplateRows: "1fr",
         ...alignment,
         ...containerStyles,
       }}
     >
-      {/* Wrap each child to place in same grid cell */}
       {Array.isArray(children)
         ? children.map((child, i) => (
             <div key={i} style={{ gridArea: "1 / 1" }}>
@@ -136,15 +128,7 @@ export function Img(props: ImgProps) {
 // NOSTR COMPONENTS (fetch their own data)
 // =============================================================================
 
-/**
- * Note - renders a nostr event by ID
- * Usage:
- *   <Note id="abc123..." />           - hex event id
- *   <Note id="note1..." />            - note-encoded id
- *   <Note id="nevent1..." />          - nevent with relay hints
- */
 export function Note({ id }: { id: string }) {
-  // Parse and validate the id
   const parseResult = useMemo(() => {
     if (!id) return { error: "missing id prop" };
     try {
@@ -161,28 +145,20 @@ export function Note({ id }: { id: string }) {
   const event = Array.isArray(events) ? events[0] : events;
 
   if (parseResult.error) {
-    return <div className="text-red-500 text-sm">Note: {parseResult.error}</div>;
+    return <div style={{ color: "#ef4444", fontSize: "0.875rem" }}>Note: {parseResult.error}</div>;
   }
   if (!event) {
-    return <div className="text-neutral-500 text-sm">Loading note...</div>;
+    return <div style={{ color: "#6b7280", fontSize: "0.875rem" }}>Loading note...</div>;
   }
 
   return (
-    <div className="border border-neutral-300 rounded p-2">
-      <div className="text-sm">{event.content}</div>
+    <div style={{ border: "1px solid #d1d5db", borderRadius: "0.25rem", padding: "0.5rem" }}>
+      <div style={{ fontSize: "0.875rem" }}>{event.content}</div>
     </div>
   );
 }
 
-/**
- * Profile - renders a nostr profile by pubkey
- * Usage:
- *   <Profile pubkey="abc123..." />    - hex pubkey
- *   <Profile pubkey="npub1..." />     - npub-encoded pubkey
- *   <Profile pubkey="nprofile1..." /> - nprofile with relay hints
- */
 export function Profile({ pubkey }: { pubkey: string }) {
-  // Parse and validate the pubkey
   const parseResult = useMemo(() => {
     if (!pubkey) return { error: "missing pubkey prop" };
     try {
@@ -198,10 +174,10 @@ export function Profile({ pubkey }: { pubkey: string }) {
   );
 
   if (parseResult.error) {
-    return <div className="text-red-500 text-sm">Profile: {parseResult.error}</div>;
+    return <div style={{ color: "#ef4444", fontSize: "0.875rem" }}>Profile: {parseResult.error}</div>;
   }
   if (!profile) {
-    return <div className="text-neutral-500 text-sm">Loading profile...</div>;
+    return <div style={{ color: "#6b7280", fontSize: "0.875rem" }}>Loading profile...</div>;
   }
 
   const displayPubkey = parseResult.hex || pubkey;
@@ -209,12 +185,12 @@ export function Profile({ pubkey }: { pubkey: string }) {
   const picture = profile.picture;
 
   return (
-    <div className="flex items-center gap-2">
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
       {picture && (
         <img
           src={picture}
           alt={name}
-          className="w-8 h-8 rounded-full object-cover"
+          style={{ width: "2rem", height: "2rem", borderRadius: "9999px", objectFit: "cover" }}
         />
       )}
       <a href={`https://njump.me/${parseResult.npub || parseResult.nprofile}`}>{name}</a>
@@ -235,7 +211,13 @@ export function Input({ name, placeholder }: { name: string; placeholder?: strin
       value={form[name] ?? ""}
       placeholder={placeholder ?? name}
       onChange={(e) => updateForm(name, e.target.value)}
-      className="border border-neutral-400 rounded px-2 py-1 w-full bg-transparent"
+      style={{
+        border: "1px solid #9ca3af",
+        borderRadius: "0.25rem",
+        padding: "0.25rem 0.5rem",
+        width: "100%",
+        background: "transparent",
+      }}
     />
   );
 }
@@ -249,7 +231,14 @@ export function Textarea({ name, placeholder, rows }: { name: string; placeholde
       placeholder={placeholder ?? name}
       rows={rows ?? 4}
       onChange={(e) => updateForm(name, e.target.value)}
-      className="border border-neutral-400 rounded px-2 py-1 w-full bg-white resize-y"
+      style={{
+        border: "1px solid #9ca3af",
+        borderRadius: "0.25rem",
+        padding: "0.25rem 0.5rem",
+        width: "100%",
+        background: "white",
+        resize: "vertical",
+      }}
     />
   );
 }
@@ -260,11 +249,14 @@ export function Button({ action, children }: { action?: string; children?: React
     <button
       onClick={() => action && executeAction(action)}
       disabled={isPublishing}
-      className={
-        isPublishing
-          ? "bg-neutral-400 text-white px-4 py-2 rounded cursor-wait"
-          : "bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      }
+      style={{
+        background: isPublishing ? "#9ca3af" : "#2563eb",
+        color: "white",
+        padding: "0.5rem 1rem",
+        borderRadius: "0.25rem",
+        border: "none",
+        cursor: isPublishing ? "wait" : "pointer",
+      }}
     >
       {isPublishing ? "Publishing..." : children}
     </button>
