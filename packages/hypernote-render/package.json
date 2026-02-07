@@ -10,7 +10,10 @@
   "scripts": {
     "dev": "bun --hot src/serve.ts",
     "check": "bun src/cli.ts check",
-    "serve": "bun src/cli.ts serve"
+    "serve": "bun src/cli.ts serve",
+    "test": "bun test tests/check.test.ts",
+    "test:e2e": "bunx playwright test",
+    "test:all": "bun test tests/check.test.ts && bunx playwright test"
   },
   "dependencies": {
     "applesauce-core": "^5.1.0",
