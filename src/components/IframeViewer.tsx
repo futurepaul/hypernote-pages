@@ -1,4 +1,4 @@
-import { usePage, HypernotePreview } from "hypernote-render";
+import { usePage, HypernotePreview } from "@futurepaul/hypernote";
 import type { AST } from "zig-mdx";
 import yaml from "yaml";
 import { useMemo, useEffect } from "react";

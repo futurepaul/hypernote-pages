@@ -32,10 +32,16 @@ title: Hello World
 This is a hypernote page.
 ```
 
+### Install the CLI
+
+```bash
+bun install -g @futurepaul/hypernote
+```
+
 ### Validate your work
 
 ```bash
-bun packages/hypernote-render/src/cli.ts check <your-file.hnmd>
+hypernote check <your-file.hnmd>
 ```
 
 This will report parse errors, frontmatter issues, and unknown components.
@@ -43,7 +49,7 @@ This will report parse errors, frontmatter issues, and unknown components.
 ### Publish to Nostr
 
 ```bash
-bun packages/hypernote-render/src/cli.ts publish <your-file.hnmd>
+hypernote publish <your-file.hnmd>
 ```
 
 Parses the .hnmd file, signs it with your blup keychain keys, and publishes it as a kind 32616 event to Nostr relays. Returns an `naddr` you can share. Use `--draft` to publish as a draft instead.
@@ -51,7 +57,7 @@ Parses the .hnmd file, signs it with your blup keychain keys, and publishes it a
 ### Preview in browser
 
 ```bash
-bun packages/hypernote-render/src/cli.ts serve <your-file.hnmd>
+hypernote serve <your-file.hnmd>
 ```
 
 Opens a preview server at `http://localhost:3456` with hot reload. If you have a browser/screenshot tool, navigate to that URL to see your rendered page.
@@ -59,10 +65,10 @@ Opens a preview server at `http://localhost:3456` with hot reload. If you have a
 ### Take a screenshot
 
 ```bash
-bun packages/hypernote-render/src/cli.ts screenshot <your-file.hnmd>
+hypernote screenshot <your-file.hnmd>
 ```
 
-Captures a full-page PNG screenshot of the rendered page (saved alongside the .hnmd file by default). Use `--output path.png` to specify a different output path. Requires playwright (`bun add -D playwright && bunx playwright install chromium`).
+Captures a full-page PNG screenshot of the rendered page (saved alongside the .hnmd file by default). Use `--output path.png` to specify a different output path. Requires playwright (`bun install -g playwright && bunx playwright install chromium`).
 
 ### Upload images
 

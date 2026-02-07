@@ -1,7 +1,7 @@
 import type { AST } from "zig-mdx";
 import yaml from "yaml";
 import { useMemo } from "react";
-import { HypernotePreview } from "hypernote-render";
+import { HypernotePreview } from "@futurepaul/hypernote";
 
 interface PreviewProps {
   ast: AST;

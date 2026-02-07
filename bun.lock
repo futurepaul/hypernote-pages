@@ -5,6 +5,7 @@
     "": {
       "name": "bun-react-template",
       "dependencies": {
+        "@futurepaul/hypernote": "workspace:*",
         "applesauce-core": "^5.1.0",
         "applesauce-react": "^5.1.0",
         "applesauce-relay": "^5.1.0",
@@ -13,7 +14,6 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "geist": "^1.5.1",
-        "hypernote-render": "file:packages/hypernote-render",
         "lucide-react": "^0.553.0",
         "non.geist": "^1.0.4",
         "nostr-tools": "^2.17.2",
@@ -36,14 +36,17 @@
       },
     },
     "packages/hypernote-render": {
-      "name": "hypernote-render",
+      "name": "@futurepaul/hypernote",
       "version": "0.1.0",
       "bin": {
-        "hypernote-render": "./src/cli.ts",
+        "hypernote": "./src/cli.ts",
       },
       "dependencies": {
         "applesauce-loaders": "^5.1.0",
         "nostr-idb": "^4.0.1",
+        "nostr-tools": "^2.17.2",
+        "yaml": "^2.8.1",
+        "zig-mdx": "^0.2.8",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -56,12 +59,9 @@
         "applesauce-react": "^5.1.0",
         "applesauce-relay": "^5.1.0",
         "applesauce-signers": "^5.1.0",
-        "nostr-tools": "^2.17.2",
         "react": "^19",
         "react-dom": "^19",
         "rxjs": "^7.8.2",
-        "yaml": "^2.8.1",
-        "zig-mdx": "^0.2.8",
       },
     },
   },
@@ -71,6 +71,8 @@
     "@cashu/cashu-ts": ["@cashu/cashu-ts@3.4.1", "", { "dependencies": { "@noble/curves": "^2.0.1", "@noble/hashes": "^2.0.1", "@scure/base": "^2.0.0", "@scure/bip32": "^2.0.1" } }, "sha512-d8bgYbYIKCsT7Hs8BsoENrRehQmuA8qYscQuAGuCk4FsT4a+OGPYAJuxgCApwBhKCokclBjZzVnkS19/CygQ0g=="],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.8.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg=="],
+
+    "@futurepaul/hypernote": ["@futurepaul/hypernote@workspace:packages/hypernote-render"],
 
     "@img/colour": ["@img/colour@1.0.0", "", {}, "sha512-A5P/LfWGFSl6nsckYtjw9da+19jB8hkJ6ACTGcDfEJ0aE+l2n2El7dsVM7UVHZQ9s2lmYMWlrS21YLy2IR1LUw=="],
 
@@ -257,8 +259,6 @@
     "geist": ["geist@1.7.0", "", { "peerDependencies": { "next": ">=13.2.0" } }, "sha512-ZaoiZwkSf0DwwB1ncdLKp+ggAldqxl5L1+SXaNIBGkPAqcu+xjVJLxlf3/S8vLt9UHx1xu5fz3lbzKCj5iOVdQ=="],
 
     "hash-sum": ["hash-sum@2.0.0", "", {}, "sha512-WdZTbAByD+pHfl/g9QSsBIIwy8IT+EsPiKDs0KNX+zSHhdDLFKdZu0BQHljvO+0QI/BasbMSUa8wYNCZTvhslg=="],
-
-    "hypernote-render": ["hypernote-render@workspace:packages/hypernote-render"],
 
     "idb": ["idb@8.0.3", "", {}, "sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg=="],
 

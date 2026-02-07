@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 
 /**
- * hypernote-render CLI
+ * hypernote CLI
  *
  * Usage:
- *   hypernote-render check <file.hnmd>       - Parse and validate
- *   hypernote-render serve <file.hnmd>        - Preview server
- *   hypernote-render screenshot <file.hnmd>   - Capture PNG (requires playwright)
- *   hypernote-render publish <file.hnmd>      - Publish to Nostr (uses blup keychain)
+ *   hypernote check <file.hnmd>       - Parse and validate
+ *   hypernote serve <file.hnmd>        - Preview server
+ *   hypernote screenshot <file.hnmd>   - Capture PNG (requires playwright)
+ *   hypernote publish <file.hnmd>      - Publish to Nostr (uses blup keychain)
  */
 
 import { parseHnmdFile } from "./parse";
@@ -19,13 +19,13 @@ const filePath = args[1];
 
 if (!command || command === "--help" || command === "-h") {
   console.log(`
-hypernote-render - Parse, validate, and render Hypernote pages
+hypernote - Parse, validate, and render Hypernote pages
 
 Usage:
-  hypernote-render check <file.hnmd>       Parse and validate a .hnmd file
-  hypernote-render serve <file.hnmd>       Start preview server with hot reload
-  hypernote-render screenshot <file.hnmd>  Capture a PNG screenshot (needs playwright)
-  hypernote-render publish <file.hnmd>     Publish to Nostr relays (uses blup keychain)
+  hypernote check <file.hnmd>       Parse and validate a .hnmd file
+  hypernote serve <file.hnmd>       Start preview server with hot reload
+  hypernote screenshot <file.hnmd>  Capture a PNG screenshot (needs playwright)
+  hypernote publish <file.hnmd>     Publish to Nostr relays (uses blup keychain)
 
 Options:
   --help, -h    Show this help message
@@ -36,7 +36,7 @@ Options:
 }
 
 if (!filePath) {
-  console.error(`Error: Missing file path. Usage: hypernote-render ${command} <file.hnmd>`);
+  console.error(`Error: Missing file path. Usage: hypernote ${command} <file.hnmd>`);
   process.exit(1);
 }
 
@@ -279,7 +279,7 @@ async function runScreenshot(file: string) {
       playwright = await import("playwright");
     } catch {
       console.error("Error: playwright is required for screenshots.");
-      console.error("Install it with: bun add playwright");
+      console.error("Install it with: bun install -g playwright");
       process.exit(1);
     }
 

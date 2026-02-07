@@ -2,7 +2,7 @@ import { EventStore } from "applesauce-core";
 import type { EventFactory } from "applesauce-core";
 import { RelayPool } from "applesauce-relay";
 import { ExtensionSigner, PasswordSigner } from "applesauce-signers/signers";
-import { NostrProvider as RenderProvider, useNostr as useRenderNostr } from "hypernote-render";
+import { NostrProvider as RenderProvider, useNostr as useRenderNostr } from "@futurepaul/hypernote";
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { nip19 } from "nostr-tools";
 

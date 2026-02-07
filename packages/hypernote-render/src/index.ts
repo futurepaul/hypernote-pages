@@ -1,5 +1,5 @@
 /**
- * hypernote-render
+ * @futurepaul/hypernote
  * Parse, validate, and render Hypernote pages (.hnmd)
  */
 
