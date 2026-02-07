@@ -32,6 +32,14 @@ bun packages/hypernote-render/src/cli.ts serve <your-file.hnmd>
 
 Opens a preview server at `http://localhost:3456` with hot reload. If you have a browser/screenshot tool, navigate to that URL to see your rendered page.
 
+### Take a screenshot
+
+```bash
+bun packages/hypernote-render/src/cli.ts screenshot <your-file.hnmd>
+```
+
+Captures a full-page PNG screenshot of the rendered page (saved alongside the .hnmd file by default). Use `--output path.png` to specify a different output path. Requires playwright (`bun add -D playwright && bunx playwright install chromium`).
+
 ## File Format
 
 Hypernote files have two sections:

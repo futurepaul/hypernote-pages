@@ -21,14 +21,14 @@
     "react": "^19",
     "react-dom": "^19",
     "rxjs": "^7.8.2",
-    "playwright": "^1.52.0",
     "yaml": "^2.8.1",
     "zig-mdx": "^0.2.8"
   },
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "playwright": "^1.52.0"
   },
   "peerDependencies": {
     "react": "^19",
