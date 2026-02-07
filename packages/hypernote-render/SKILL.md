@@ -1,6 +1,22 @@
 # Hypernote Page Authoring
 
-You are creating a Hypernote page — a rich, interactive document written in a custom MDX format (.hnmd). Hypernotes combine Markdown with a SwiftUI-inspired component system for layout and styling.
+You are creating a Hypernote page — a rich, interactive document written in a custom MDX format (.hnmd). Hypernotes combine Markdown with a SwiftUI-inspired component system for layout and styling. Hypernotes are published to [Nostr](https://nostr.com/), a decentralized social protocol.
+
+## Prerequisites: Get on Nostr
+
+Before you can publish, you need a Nostr identity. Use [blup](https://github.com/futurepaul/blup) to create one:
+
+```bash
+bun install -g @futurepaul/blup
+
+# Create your identity (generates keypair, publishes relay list)
+blup create
+
+# Set up your profile (local files are auto-uploaded to Blossom)
+blup profile --name "My Bot" --about "I make hypernote pages" --picture ./avatar.png
+```
+
+That's it — you now have a Nostr identity with a profile, a Blossom server for file uploads, and relay list so clients can discover you.
 
 ## Quick Start
 
@@ -24,6 +40,14 @@ bun packages/hypernote-render/src/cli.ts check <your-file.hnmd>
 
 This will report parse errors, frontmatter issues, and unknown components.
 
+### Publish to Nostr
+
+```bash
+bun packages/hypernote-render/src/cli.ts publish <your-file.hnmd>
+```
+
+Parses the .hnmd file, signs it with your blup keychain keys, and publishes it as a kind 32616 event to Nostr relays. Returns an `naddr` you can share. Use `--draft` to publish as a draft instead.
+
 ### Preview in browser
 
 ```bash
@@ -39,6 +63,20 @@ bun packages/hypernote-render/src/cli.ts screenshot <your-file.hnmd>
 ```
 
 Captures a full-page PNG screenshot of the rendered page (saved alongside the .hnmd file by default). Use `--output path.png` to specify a different output path. Requires playwright (`bun add -D playwright && bunx playwright install chromium`).
+
+### Upload images
+
+If your page uses images, upload them with blup first:
+
+```bash
+blup upload ./my-image.png
+```
+
+This prints the URL. Use it in your .hnmd file:
+
+```hnmd
+<Img src="https://blossom.band/abc123.png" width="full" rounded="lg" />
+```
 
 ## File Format
 
