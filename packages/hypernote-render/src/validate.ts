@@ -1,11 +1,22 @@
 /**
  * Validation for .hnmd files
- * Checks parse errors, frontmatter validity, and component usage
+ * Checks parse errors, frontmatter validity, and component usage.
+ *
+ * All valid values are derived from the actual renderer sources:
+ * - Style values from styles.ts (SPACING_MAP, ROUNDED_MAP, etc.)
+ * - Component names from builtins.tsx (builtinComponents)
+ * - Frontmatter keys from frontmatter.ts (FRONTMATTER_SCHEMA)
  */
 
-import type { AST, Node } from "zig-mdx";
+import type { AST } from "zig-mdx";
 import yaml from "yaml";
 import { builtinComponents } from "./lib/builtins";
+import { SPACING_MAP } from "./lib/styles";
+import {
+  KNOWN_FRONTMATTER_KEYS,
+  VALID_BG_MODES,
+  VALID_OVERFLOW_VALUES,
+} from "./lib/frontmatter";
 
 export interface ValidationResult {
   valid: boolean;
@@ -26,24 +37,13 @@ export interface ValidationWarning {
   message: string;
 }
 
-const KNOWN_FRONTMATTER_KEYS = new Set([
-  "title", "name",
-  "bg", "bgMode", "color", "padding", "overflow", "aspect",
-  "canvas",
-  "profile", "event", "address", "filter",
-  "form", "actions",
-  "imports",
-]);
-
-const VALID_SPACING = new Set(["0", "1", "2", "3", "4", "6", "8", "12", "16"]);
-const VALID_OVERFLOW = new Set(["visible", "hidden", "scroll", "auto"]);
-const VALID_BG_MODE = new Set(["cover", "tile", "contain"]);
+// Derived from actual renderer sources — not redeclared
+const VALID_SPACING = new Set(Object.keys(SPACING_MAP));
 
 const BUILTIN_NAMES = new Set(
   Object.keys(builtinComponents).map(k => k.toLowerCase())
 );
-// "Each" is a special pseudo-component
-BUILTIN_NAMES.add("each");
+BUILTIN_NAMES.add("each"); // special pseudo-component handled in NodeRenderer
 
 export function validate(ast: AST): ValidationResult {
   const errors: ValidationError[] = [];
@@ -86,23 +86,23 @@ export function validate(ast: AST): ValidationResult {
       }
     }
 
-    // Validate specific values
+    // Validate specific values against their real sources
     if (frontmatter.padding && !VALID_SPACING.has(String(frontmatter.padding))) {
       warnings.push({
         type: "frontmatter",
         message: `Padding value "${frontmatter.padding}" is not in the spacing scale: ${[...VALID_SPACING].join(", ")}`,
       });
     }
-    if (frontmatter.overflow && !VALID_OVERFLOW.has(frontmatter.overflow)) {
+    if (frontmatter.overflow && !VALID_OVERFLOW_VALUES.includes(frontmatter.overflow)) {
       warnings.push({
         type: "frontmatter",
-        message: `Invalid overflow value: "${frontmatter.overflow}". Valid: ${[...VALID_OVERFLOW].join(", ")}`,
+        message: `Invalid overflow value: "${frontmatter.overflow}". Valid: ${VALID_OVERFLOW_VALUES.join(", ")}`,
       });
     }
-    if (frontmatter.bgMode && !VALID_BG_MODE.has(frontmatter.bgMode)) {
+    if (frontmatter.bgMode && !VALID_BG_MODES.includes(frontmatter.bgMode)) {
       warnings.push({
         type: "frontmatter",
-        message: `Invalid bgMode value: "${frontmatter.bgMode}". Valid: ${[...VALID_BG_MODE].join(", ")}`,
+        message: `Invalid bgMode value: "${frontmatter.bgMode}". Valid: ${VALID_BG_MODES.join(", ")}`,
       });
     }
 
@@ -127,7 +127,6 @@ export function validate(ast: AST): ValidationResult {
       if (name) {
         componentsUsed.add(name);
 
-        // Check if component is known
         const isBuiltin = BUILTIN_NAMES.has(name.toLowerCase());
         const isImported = frontmatter?.imports && name in frontmatter.imports;
 

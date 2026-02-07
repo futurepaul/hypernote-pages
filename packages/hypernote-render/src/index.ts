@@ -29,6 +29,17 @@ export {
   ROUNDED_MAP,
 } from "./lib/styles";
 
+// Frontmatter
+export {
+  FRONTMATTER_SCHEMA,
+  KNOWN_FRONTMATTER_KEYS,
+  VALID_BG_MODES,
+  VALID_OVERFLOW_VALUES,
+  CANVAS_DEFAULTS,
+  extractCanvasProps,
+} from "./lib/frontmatter";
+export type { FrontmatterKey, BgMode, CanvasOverflow } from "./lib/frontmatter";
+
 // Evaluator
 export { evaluate, parseAttributes } from "./lib/evaluator";
 export type { EvaluationScope } from "./lib/evaluator";

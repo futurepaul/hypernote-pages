@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { NodeRenderer } from "./NodeRenderer";
 import { usePageContext, ScopeProvider } from "../hooks/usePageContext";
 import { parseColor, detectBgType, SPACING_MAP, type SpacingValue } from "../lib/styles";
+import { extractCanvasProps } from "../lib/frontmatter";
 
 interface HypernotePreviewProps {
   ast: AST;
@@ -28,12 +29,7 @@ export function HypernotePreview({ ast }: HypernotePreviewProps) {
     return null;
   }, [ast]);
 
-  // Extract canvas properties from frontmatter
-  const bg: string | undefined = frontmatter?.canvas?.bg ?? frontmatter?.bg;
-  const bgMode: "cover" | "tile" | "contain" = frontmatter?.canvas?.bgMode ?? frontmatter?.bgMode ?? "cover";
-  const color: string | undefined = frontmatter?.canvas?.color ?? frontmatter?.color;
-  const padding: string | undefined = frontmatter?.canvas?.padding ?? frontmatter?.padding ?? "4";
-  const overflow: "auto" | "hidden" | "scroll" | "visible" = frontmatter?.canvas?.overflow ?? frontmatter?.overflow ?? "auto";
+  const { bg, bgMode, color, padding, overflow } = extractCanvasProps(frontmatter);
 
   const scope = usePageContext(frontmatter);
 
