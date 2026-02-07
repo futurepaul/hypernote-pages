@@ -16,6 +16,7 @@ export { HypernotePreview } from "./components/HypernotePreview";
 export { NodeRenderer } from "./components/NodeRenderer";
 export { NostrProvider } from "./components/NostrContext";
 export type { NostrProviderProps, NostrContextValue } from "./components/NostrContext";
+export { LoginModal } from "./components/LoginModal";
 export { builtinComponents } from "./lib/builtins";
 
 // Styles

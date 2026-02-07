@@ -11,8 +11,9 @@ import { persistEventsToCache } from "applesauce-core/helpers";
 import { RelayPool } from "applesauce-relay";
 import { createEventLoaderForStore } from "applesauce-loaders/loaders";
 import { EventStoreProvider } from "applesauce-react/providers";
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { LOOKUP_RELAYS, DEFAULT_RELAYS } from "../lib/relays";
+import { LoginModal } from "./LoginModal";
 
 // ---------- Types ----------
 
@@ -24,6 +25,8 @@ export interface NostrContextValue {
   setSigner?: (signer: EventSigner | null) => void;
   pubkey: string | null;
   isReadonly: boolean;
+  /** Request the login modal to appear. No-op when embedded with external signer. */
+  requestLogin: () => void;
 }
 
 export interface NostrProviderProps {
@@ -139,6 +142,16 @@ export function NostrProvider({
     [signer],
   );
 
+  // Login modal state (only shown in standalone mode)
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const canShowLogin = externalSigner === undefined; // only standalone mode
+
+  const requestLogin = useCallback(() => {
+    if (signer) return; // already logged in
+    if (!canShowLogin) return; // embedded mode, host manages auth
+    setLoginModalOpen(true);
+  }, [signer, canShowLogin]);
+
   const value = useMemo<NostrContextValue>(() => ({
     eventStore,
     pool,
@@ -147,12 +160,19 @@ export function NostrProvider({
     setSigner: externalSigner !== undefined ? undefined : setInternalSigner,
     pubkey,
     isReadonly: !signer,
-  }), [eventStore, pool, signer, factory, pubkey, externalSigner]);
+    requestLogin,
+  }), [eventStore, pool, signer, factory, pubkey, externalSigner, requestLogin]);
 
   return (
     <EventStoreProvider eventStore={eventStore}>
       <NostrContext value={value}>
         {children}
+        {canShowLogin && (
+          <LoginModal
+            open={loginModalOpen}
+            onClose={() => setLoginModalOpen(false)}
+          />
+        )}
       </NostrContext>
     </EventStoreProvider>
   );

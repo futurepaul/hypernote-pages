@@ -3,6 +3,7 @@ import { useNostr } from "../components/NostrContext";
 import { useNostrQuery, type NostrQuery } from "./useNostrQuery";
 import { useComponents } from "./useComponent";
 import { evaluate, type EvaluationScope } from "../lib/evaluator";
+import { DEFAULT_RELAYS } from "../lib/relays";
 
 // Context for builtins to access scope
 const ScopeContext = createContext<EvaluationScope | null>(null);
@@ -95,7 +96,7 @@ export function usePageContext(frontmatter: Record<string, any> | null): Evaluat
     }
   }, [queries, frontmatter?.form]);
 
-  // Execute an action - read-only mode just warns
+  // Execute an action — builds event from action def, signs with EventFactory, publishes
   const executeAction = useCallback(async (actionName: string) => {
     const actionDef = frontmatter?.actions?.[actionName];
     if (!actionDef) {
@@ -103,11 +104,94 @@ export function usePageContext(frontmatter: Record<string, any> | null): Evaluat
       return;
     }
 
-    if (!nostr || nostr.isReadonly) {
-      console.warn("Read-only mode: cannot execute actions");
+    // If readonly, request login instead
+    if (nostr.isReadonly) {
+      nostr.requestLogin();
       return;
     }
-  }, [frontmatter, nostr]);
+
+    if (!nostr.factory) {
+      console.warn("No EventFactory available");
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      // Build the evaluation scope for interpolating templates
+      const evalScope: EvaluationScope = {
+        props: {},
+        queries,
+        state: frontmatter ?? {},
+        form,
+        user: nostr.pubkey ?? undefined,
+        components,
+        updateForm,
+        executeAction: async () => {},
+        isPublishing: true,
+      };
+
+      // Resolve kind
+      const kind = typeof actionDef.kind === "number"
+        ? actionDef.kind
+        : typeof actionDef.kind === "string"
+          ? Number(evaluate(actionDef.kind, evalScope) ?? actionDef.kind)
+          : 1;
+
+      // Resolve content
+      let content = "";
+      if (typeof actionDef.content === "string") {
+        content = String(evaluate(actionDef.content, evalScope) ?? actionDef.content);
+      }
+
+      // Resolve tags
+      const tags: string[][] = [];
+      if (Array.isArray(actionDef.tags)) {
+        for (const tagDef of actionDef.tags) {
+          if (!Array.isArray(tagDef)) continue;
+          const resolvedTag = tagDef.map((part: any) => {
+            if (typeof part === "string") {
+              return String(evaluate(part, evalScope) ?? part);
+            }
+            return String(part);
+          });
+          tags.push(resolvedTag);
+        }
+      }
+
+      // Build the event template
+      const template = {
+        kind,
+        content,
+        tags,
+        created_at: Math.floor(Date.now() / 1000),
+      };
+
+      // Sign with EventFactory (works with any signer type)
+      const signed = await nostr.factory.sign(template);
+
+      // Publish to relays
+      const relays = actionDef.relays ?? DEFAULT_RELAYS;
+      for (const relay of relays) {
+        try {
+          nostr.pool.relay(relay).publish(signed);
+        } catch (e) {
+          console.warn(`Failed to publish to ${relay}:`, e);
+        }
+      }
+
+      // Add to local event store so it appears immediately
+      nostr.eventStore.add(signed);
+
+      // Clear form after successful publish
+      if (actionDef.clearForm !== false) {
+        setForm({});
+      }
+    } catch (e) {
+      console.error(`Action "${actionName}" failed:`, e);
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [frontmatter, nostr, queries, form, components, updateForm]);
 
   return useMemo<EvaluationScope>(() => ({
     props: {},
