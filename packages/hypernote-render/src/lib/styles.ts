@@ -547,7 +547,7 @@ export interface PropertyDefinition {
   type: "select" | "color" | "text";
   options?: string[];
   default?: string;
-  group: "layout" | "size" | "appearance" | "spacing" | "text" | "alignment";
+  group: "layout" | "size" | "appearance" | "spacing" | "text" | "alignment" | "meta";
 }
 
 export const CONTAINER_PROPERTIES: PropertyDefinition[] = [

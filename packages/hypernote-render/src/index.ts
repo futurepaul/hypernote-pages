@@ -14,7 +14,7 @@ export type { ValidationResult, ValidationError, ValidationWarning } from "./val
 // React components
 export { HypernotePreview } from "./components/HypernotePreview";
 export { NodeRenderer } from "./components/NodeRenderer";
-export { NostrProvider } from "./components/NostrContext";
+export { NostrProvider, NostrContext } from "./components/NostrContext";
 export type { NostrProviderProps, NostrContextValue } from "./components/NostrContext";
 export { LoginModal } from "./components/LoginModal";
 export { builtinComponents } from "./lib/builtins";
@@ -24,6 +24,7 @@ export {
   parseColor,
   detectBgType,
   resolveContainerStyles,
+  resolveZStackAlignment,
   resolveTextStyles,
   resolveImgStyles,
   SPACING_MAP,
@@ -50,6 +51,13 @@ export type { FrontmatterKey, BgMode, CanvasOverflow } from "./lib/frontmatter";
 // Evaluator
 export { evaluate, parseAttributes } from "./lib/evaluator";
 export type { EvaluationScope } from "./lib/evaluator";
+
+// NIP-19
+export { parseAddress, parsePubkey, parseEventId } from "./lib/nip19";
+export type { ParsedAddress, ParsedPubkey, ParsedEventId } from "./lib/nip19";
+
+// Relays
+export { DEFAULT_RELAYS, LOOKUP_RELAYS } from "./lib/relays";
 
 // Hooks
 export { useNostrQuery } from "./hooks/useNostrQuery";

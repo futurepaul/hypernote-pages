@@ -35,8 +35,8 @@ export interface NostrContextValue extends AppAuthContextValue {
 
 const AppAuthContext = createContext<AppAuthContextValue | null>(null);
 
-const eventStore = new EventStore();
-const pool = new RelayPool();
+export const eventStore = new EventStore();
+export const pool = new RelayPool();
 const extensionSigner = new ExtensionSigner();
 const passwordSigner = new PasswordSigner();
 

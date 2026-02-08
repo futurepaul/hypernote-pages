@@ -7,10 +7,13 @@
   "scripts": {
     "dev": "bun --hot src/index.ts",
     "start": "NODE_ENV=production bun src/index.ts",
-    "build": "bun run build.ts"
+    "build": "bun run build.ts",
+    "check": "bunx tsc --noEmit"
   },
   "dependencies": {
+    "@futurepaul/hypernote": "workspace:*",
     "applesauce-core": "^5.1.0",
+    "applesauce-loaders": "^5.1.0",
     "applesauce-react": "^5.1.0",
     "applesauce-relay": "^5.1.0",
     "applesauce-signers": "^5.1.0",
@@ -18,7 +21,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "geist": "^1.5.1",
-    "@futurepaul/hypernote": "workspace:*",
     "lucide-react": "^0.553.0",
     "non.geist": "^1.0.4",
     "nostr-tools": "^2.17.2",

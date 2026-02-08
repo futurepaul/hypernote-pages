@@ -110,7 +110,7 @@ async function runServe(file: string) {
   // Dynamic import to avoid loading serve dependencies for check command
   const { startServer } = await import("./serve");
   const portArg = args.indexOf("--port");
-  const port = portArg !== -1 && args[portArg + 1] ? parseInt(args[portArg + 1], 10) : 3456;
+  const port = portArg !== -1 && args[portArg + 1] ? parseInt(args[portArg + 1]!, 10) : 3456;
   await startServer(file, port);
 }
 
@@ -181,7 +181,7 @@ async function runPublish(file: string) {
   }
 
   // Extract frontmatter
-  const fmNode = ast.children.find((child: any) => child.type === "frontmatter")?.value;
+  const fmNode = (ast.children.find((child: any) => child.type === "frontmatter") as any)?.value;
   if (!fmNode) {
     console.error("Error: No frontmatter found. Add a --- block with at least a 'title'.");
     process.exit(1);

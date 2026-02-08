@@ -7,6 +7,7 @@
       "dependencies": {
         "@futurepaul/hypernote": "workspace:*",
         "applesauce-core": "^5.1.0",
+        "applesauce-loaders": "^5.1.0",
         "applesauce-react": "^5.1.0",
         "applesauce-relay": "^5.1.0",
         "applesauce-signers": "^5.1.0",
