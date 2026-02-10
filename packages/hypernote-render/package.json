@@ -1,6 +1,6 @@
 {
   "name": "@futurepaul/hypernote",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Parse, validate, and render Hypernote pages (.hnmd)",
   "type": "module",
   "main": "./src/index.ts",

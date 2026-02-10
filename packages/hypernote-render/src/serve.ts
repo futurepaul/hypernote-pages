@@ -82,7 +82,9 @@ export async function startServer(filePath: string, port: number = 3456, silent:
         clients.delete(ws);
       },
     },
-    development: !silent && {
+    // Always enable development mode for proper HTML import bundling.
+    // Without it, Bun generates broken relative paths for JS chunks.
+    development: silent ? true : {
       hmr: true,
       console: true,
     },
