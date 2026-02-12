@@ -118,7 +118,14 @@ async function runPublish(file: string) {
   const { finalizeEvent, getPublicKey, validateEvent } = await import("nostr-tools");
   const { decode, naddrEncode } = await import("nostr-tools/nip19");
   const { SimplePool } = await import("nostr-tools/pool");
-  const { secrets } = await import("bun");
+  // Try bun:secrets, fall back to no-op if unavailable
+  let secrets: { get: (opts: {service: string, name: string}) => Promise<string | undefined> };
+  try {
+    secrets = (await import("bun")).secrets;
+    if (!secrets || typeof secrets.get !== "function") throw new Error("no secrets");
+  } catch {
+    secrets = { async get() { return undefined; } };
+  }
   const yaml = (await import("yaml")).default;
   const { DEFAULT_RELAYS, LOOKUP_RELAYS } = await import("./lib/relays");
 
@@ -143,13 +150,18 @@ async function runPublish(file: string) {
     // Use default
   }
 
-  const nsec = await secrets.get({ service: BLUP_SERVICE, name: `${activeAccount}.nsec` });
+  // Check env var first, then keychain
+  let nsec = process.env.BLUP_NSEC;
   if (!nsec) {
-    // Try legacy key
-    const legacyNsec = await secrets.get({ service: BLUP_SERVICE, name: "nsec" });
-    if (!legacyNsec) {
-      console.error("Error: No keys found. Run 'blup create' first to set up your Nostr identity.");
-      process.exit(1);
+    nsec = await secrets.get({ service: BLUP_SERVICE, name: `${activeAccount}.nsec` }) ?? undefined;
+    if (!nsec) {
+      // Try legacy key
+      const legacyNsec = await secrets.get({ service: BLUP_SERVICE, name: "nsec" });
+      if (!legacyNsec) {
+        console.error("Error: No keys found. Run 'blup create' first, or set BLUP_NSEC env var.");
+        process.exit(1);
+      }
+      nsec = legacyNsec;
     }
   }
 
